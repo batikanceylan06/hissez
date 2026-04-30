@@ -1,4 +1,4 @@
-const CACHE_NAME = "hissez-public-v18-about-pinterest-redesign";
+const CACHE_NAME = "hissez-public-v18-about-pinterest-pro";
 const ASSETS = [
   "/",
   "/index.html",

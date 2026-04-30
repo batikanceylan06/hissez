@@ -1672,3 +1672,222 @@ body[data-theme="dark"] .social-link {
     padding: 0 16px;
   }
 }
+
+
+/* ===== HAKKIMDA / PINTEREST PRO SECTION ===== */
+.about-pinterest-compact,
+.about-pinterest-panel,
+.pinterest-about-card {
+  display: none !important;
+}
+
+.hissez-pinterest-showcase {
+  position: relative !important;
+  overflow: hidden !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 280px !important;
+  gap: 28px !important;
+  align-items: center !important;
+  padding: 38px 42px !important;
+  border-radius: 34px !important;
+  background: linear-gradient(135deg, #7f1734 0%, #9f2b50 48%, #cb6d8d 100%) !important;
+  box-shadow: 0 28px 70px rgba(127, 23, 52, 0.18) !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+}
+
+.hissez-pinterest-showcase::before,
+.hissez-pinterest-showcase::after {
+  content: "" !important;
+  position: absolute !important;
+  border-radius: 999px !important;
+  pointer-events: none !important;
+}
+
+.hissez-pinterest-showcase::before {
+  width: 280px !important;
+  height: 280px !important;
+  right: -80px !important;
+  top: -90px !important;
+  background: rgba(255,255,255,0.12) !important;
+}
+
+.hissez-pinterest-showcase::after {
+  width: 180px !important;
+  height: 180px !important;
+  left: -50px !important;
+  bottom: -70px !important;
+  background: rgba(255,255,255,0.08) !important;
+}
+
+.hissez-pinterest-showcase__content,
+.hissez-pinterest-showcase__side,
+.hissez-pinterest-showcase__meta,
+.hissez-pinterest-showcase__badge,
+.hissez-pinterest-showcase__button {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.hissez-pinterest-showcase__eyebrow {
+  display: inline-block !important;
+  margin-bottom: 10px !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  letter-spacing: 0.24em !important;
+  text-transform: uppercase !important;
+  font-weight: 900 !important;
+  color: rgba(255,255,255,0.88) !important;
+}
+
+.hissez-pinterest-showcase__content h2 {
+  margin: 0 0 12px 0 !important;
+  color: #ffffff !important;
+  font-size: clamp(30px, 4vw, 50px) !important;
+  line-height: 1.02 !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.03em !important;
+}
+
+.hissez-pinterest-showcase__content p {
+  margin: 0 !important;
+  max-width: 760px !important;
+  color: rgba(255,255,255,0.92) !important;
+  font-size: 18px !important;
+  line-height: 1.72 !important;
+  font-weight: 500 !important;
+}
+
+.hissez-pinterest-showcase__meta {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  margin-top: 18px !important;
+}
+
+.hissez-pinterest-showcase__meta span {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 36px !important;
+  padding: 0 14px !important;
+  border-radius: 999px !important;
+  background: rgba(255,255,255,0.12) !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+}
+
+.hissez-pinterest-showcase__side {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 14px !important;
+}
+
+.hissez-pinterest-showcase__badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-height: 46px !important;
+  padding: 0 16px !important;
+  border-radius: 999px !important;
+  background: rgba(255,255,255,0.12) !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+}
+
+.hissez-pinterest-mark {
+  width: 24px !important;
+  height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  background: rgba(255,255,255,0.18) !important;
+  color: #fff !important;
+  font-size: 15px !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+  font-family: Georgia, serif !important;
+}
+
+.hissiez-pinterest-mark--button {
+  background: rgba(127, 23, 52, 0.10) !important;
+  color: #7f1734 !important;
+}
+
+.hissez-pinterest-showcase__button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  min-width: 210px !important;
+  min-height: 56px !important;
+  padding: 0 22px !important;
+  border-radius: 999px !important;
+  background: #ffffff !important;
+  color: #7f1734 !important;
+  text-decoration: none !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  box-shadow: 0 18px 34px rgba(0,0,0,0.14) !important;
+  transition: transform .22s ease, box-shadow .22s ease !important;
+}
+
+.hissez-pinterest-showcase__button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 22px 38px rgba(0,0,0,0.18) !important;
+}
+
+html[data-theme="dark"] .hissez-pinterest-showcase,
+body[data-theme="dark"] .hissez-pinterest-showcase {
+  background: linear-gradient(135deg, #5e1027 0%, #7a1b3a 50%, #a74567 100%) !important;
+}
+
+@media (max-width: 900px) {
+  .hissez-pinterest-showcase {
+    grid-template-columns: 1fr !important;
+    padding: 30px 24px !important;
+    gap: 20px !important;
+    border-radius: 28px !important;
+  }
+
+  .hissez-pinterest-showcase__side {
+    align-items: flex-start !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .hissez-pinterest-showcase {
+    padding: 24px 18px !important;
+    border-radius: 24px !important;
+  }
+
+  .hissez-pinterest-showcase__content h2 {
+    font-size: clamp(26px, 8vw, 36px) !important;
+  }
+
+  .hissez-pinterest-showcase__content p {
+    font-size: 15px !important;
+    line-height: 1.65 !important;
+  }
+
+  .hissez-pinterest-showcase__meta span {
+    font-size: 12px !important;
+    min-height: 32px !important;
+  }
+
+  .hissez-pinterest-showcase__badge {
+    min-height: 40px !important;
+    font-size: 13px !important;
+  }
+
+  .hissez-pinterest-showcase__button {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 50px !important;
+    font-size: 15px !important;
+  }
+}
