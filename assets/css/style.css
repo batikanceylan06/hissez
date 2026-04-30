@@ -1486,3 +1486,102 @@ body[data-theme="dark"] .social-link {
     width: 100%;
   }
 }
+
+
+/* --- Pinterest mobil düzeltme: ikon taşmasını kesin engelle --- */
+.social-icon,
+.pinterest-icon,
+.pinterest-link svg,
+.pinterest-cta svg,
+.about-pinterest-compact svg,
+.footer-social svg {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  max-width: 18px !important;
+  min-height: 18px !important;
+  max-height: 18px !important;
+  display: inline-block !important;
+  flex: 0 0 18px !important;
+  fill: currentColor !important;
+  transform: none !important;
+}
+
+.pinterest-about-card {
+  display: none !important;
+}
+
+.footer-social {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+  justify-content: flex-end !important;
+}
+
+.social-link.pinterest-link {
+  width: auto !important;
+  max-width: 100% !important;
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  border-radius: 999px !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+}
+
+.about-pinterest-compact {
+  width: min(1140px, calc(100% - 40px));
+  margin: 28px auto 0;
+}
+
+.about-pinterest-compact a {
+  min-height: 58px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--primary), var(--primary-2, var(--primary)));
+  color: #fff;
+  font-weight: 900;
+  box-shadow: var(--shadow-sm, 0 18px 46px rgba(85,17,39,.10));
+}
+
+@media (max-width: 720px) {
+  .footer-inner {
+    gap: 10px !important;
+  }
+
+  .footer-social {
+    width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
+    gap: 8px !important;
+  }
+
+  .social-link.pinterest-link {
+    min-height: 38px !important;
+    padding: 0 12px !important;
+    font-size: 13px !important;
+  }
+
+  .about-pinterest-compact {
+    width: min(100% - 28px, 1140px);
+    margin-top: 20px;
+  }
+
+  .about-pinterest-compact a {
+    width: 100%;
+    min-height: 52px;
+    padding: 0 16px;
+    font-size: 14px;
+  }
+}
