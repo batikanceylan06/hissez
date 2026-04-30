@@ -7,10 +7,10 @@ const TRACK_KEY = "hissez-audio-track";
 const MUTE_KEY = "hissez-audio-muted";
 
 const tracks = [
-  { title: "Sessiz Ambiyans", subtitle: "Yumuşak blog fonu", src: "assets/audio/hissez-ambient-1.ogg" },
-  { title: "Gece Defteri", subtitle: "Sakin ve derin", src: "assets/audio/hissez-ambient-2.ogg" },
-  { title: "Şiir Odası", subtitle: "Hafif romantik", src: "assets/audio/hissez-ambient-3.ogg" },
-  { title: "Gün Notu", subtitle: "Minimal arka plan", src: "assets/audio/hissez-ambient-4.ogg" }
+  { title: "Sessiz Ambiyans", subtitle: "Yumuşak ve düz fon", src: "assets/audio/hissez-sessiz-ambiyans.ogg?v=2" },
+  { title: "Gece Defteri", subtitle: "Daha koyu, hafif ritimli", src: "assets/audio/hissez-gece-defteri.ogg?v=2" },
+  { title: "Şiir Odası", subtitle: "Parlak ve çan dokulu", src: "assets/audio/hissez-siir-odasi.ogg?v=2" },
+  { title: "Gün Notu", subtitle: "Daha hareketli, sıcak fon", src: "assets/audio/hissez-gun-notu.ogg?v=2" }
 ];
 
 function setTheme(theme) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "hissez-public-v18-structured";
+const CACHE_NAME = "hissez-public-v18-music-fix";
 const ASSETS = [
   "/",
   "/index.html",
@@ -11,10 +11,10 @@ const ASSETS = [
   "/assets/js/posts.js",
   "/assets/js/firebase-config.js",
   "/assets/img/hissez-logo.png",
-  "/assets/audio/hissez-ambient-4.ogg",
-  "/assets/audio/hissez-ambient-3.ogg",
-  "/assets/audio/hissez-ambient-2.ogg",
-  "/assets/audio/hissez-ambient-1.ogg",
+  "/assets/audio/hissez-sessiz-ambiyans.ogg",
+  "/assets/audio/hissez-gece-defteri.ogg",
+  "/assets/audio/hissez-siir-odasi.ogg",
+  "/assets/audio/hissez-gun-notu.ogg",
   "/assets/icons/favicon.ico",
   "/assets/icons/favicon-16x16.png",
   "/assets/icons/favicon-32x32.png",

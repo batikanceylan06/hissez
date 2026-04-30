@@ -1,0 +1,12 @@
+Müzik düzeltmesi yapıldı.
+
+Önceki 4 müzik birbirine çok benzer duyuluyordu.
+Bu sürümde 4 ayrı OGG dosyası üretildi ve main.js track listesi yeni dosyalara bağlandı:
+
+- hissez-sessiz-ambiyans.ogg
+- hissez-gece-defteri.ogg
+- hissez-siir-odasi.ogg
+- hissez-gun-notu.ogg
+
+Parça değiştirince audio.currentTime = 0 yapıldı.
+Service worker cache versiyonu değiştirildi.
