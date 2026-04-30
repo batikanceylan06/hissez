@@ -1,8 +1,0 @@
-{
-  "rules": {
-    "posts": {
-      ".read": true,
-      ".write": "auth != null && (auth.token.email == 'batikanceylan06@gmail.com' || auth.token.email == 'kocasezinkoca@icloud.com')"
-    }
-  }
-}
