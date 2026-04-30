@@ -2153,3 +2153,101 @@ body[data-theme="dark"] .pinterest-feature-v2__mini-text small {
     font-size: 14px !important;
   }
 }
+
+
+/* ===== PINTEREST LOGO FIX ===== */
+.pinterest-feature-v2__badge,
+.pinterest-feature-v2__badge--button {
+  display: none !important;
+}
+
+.pinterest-feature-v2__icon-wrap {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  max-width: 34px !important;
+  max-height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, #8f2a4a, #c1547d) !important;
+  color: #ffffff !important;
+  flex: 0 0 34px !important;
+  box-shadow: 0 10px 24px rgba(143, 42, 74, 0.24) !important;
+}
+
+.pinterest-feature-v2__icon-wrap--button {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  max-width: 28px !important;
+  max-height: 28px !important;
+  flex: 0 0 28px !important;
+  background: rgba(255,255,255,0.16) !important;
+  box-shadow: none !important;
+}
+
+.pinterest-fixed-icon {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  max-width: 18px !important;
+  max-height: 18px !important;
+  display: block !important;
+  flex: 0 0 18px !important;
+  fill: currentColor !important;
+}
+
+.pinterest-feature-v2__icon-wrap--button .pinterest-fixed-icon {
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+  min-height: 14px !important;
+  max-width: 14px !important;
+  max-height: 14px !important;
+  flex: 0 0 14px !important;
+}
+
+@media (max-width: 640px) {
+  .pinterest-feature-v2__icon-wrap {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    min-height: 30px !important;
+    max-width: 30px !important;
+    max-height: 30px !important;
+    flex: 0 0 30px !important;
+  }
+
+  .pinterest-feature-v2__icon-wrap--button {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    min-height: 26px !important;
+    max-width: 26px !important;
+    max-height: 26px !important;
+    flex: 0 0 26px !important;
+  }
+
+  .pinterest-fixed-icon {
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
+    max-width: 16px !important;
+    max-height: 16px !important;
+  }
+
+  .pinterest-feature-v2__icon-wrap--button .pinterest-fixed-icon {
+    width: 13px !important;
+    height: 13px !important;
+    min-width: 13px !important;
+    min-height: 13px !important;
+    max-width: 13px !important;
+    max-height: 13px !important;
+  }
+}
