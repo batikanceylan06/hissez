@@ -1,0 +1,5 @@
+Hakkımda sayfasındaki Pinterest alanı tamamen yeniden tasarlandı.
+- Düz yazı görünümü kaldırıldı.
+- Sayfa yapısına uygun kart yapısı eklendi.
+- SVG yerine sabit boyutlu P badge kullanıldı.
+- Mobilde büyümeyen, kontrollü buton ve mini bilgi kutusu eklendi.
