@@ -1,0 +1,21 @@
+{
+  "name": "Hissez",
+  "short_name": "Hissez",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#fff8f6",
+  "theme_color": "#89193d",
+  "description": "Sezin’in şiirleri ve gün notları için zarif kişisel blog.",
+  "icons": [
+    {
+      "src": "/assets/icons/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icons/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

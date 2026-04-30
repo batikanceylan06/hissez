@@ -1,0 +1,33 @@
+HISSEZ V18 — GITHUB / VERCEL YÜKLEME NOTU
+
+Bu paketin içindeki dosyalar GitHub repository kök dizinine direkt yüklenmelidir.
+
+Doğru yapı:
+/
+  index.html
+  siirler.html
+  gun-notlari.html
+  hakkimda.html
+  yazi.html
+  sezin-panel.html
+  assets/
+  config/
+  docs/
+  vercel.json
+  sw.js
+  site.webmanifest
+
+Yanlış yapı:
+/
+  hissez-final-v18-structured-full/
+    index.html
+    assets/
+
+GitHub'da kökte sadece klasör görünürse Vercel ana sayfayı bulamaz ve 404 verir.
+
+Vercel ayarları:
+Framework Preset: Other
+Build Command: boş
+Install Command: boş
+Output Directory: .
+Root Directory: ./
