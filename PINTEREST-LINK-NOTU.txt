@@ -1,0 +1,10 @@
+Pinterest linki eklendi.
+
+Link:
+https://pin.it/55jp4Ze6V
+
+Eklendiği alanlar:
+- Tüm sayfaların footer alanı
+- Hakkımda sayfasında özel Pinterest kartı
+
+Footer ve hakkımda kartında inline SVG Pinterest logosu kullanıldı.

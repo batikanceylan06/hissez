@@ -1391,3 +1391,98 @@ p {
     bottom: 64px;
   }
 }
+
+
+/* --- Pinterest footer + hakkımda linkleri --- */
+.footer-social {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.social-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 0 15px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-solid, #fffaf8) 86%, transparent);
+  color: var(--primary);
+  font-weight: 900;
+  box-shadow: var(--shadow-xs, 0 8px 22px rgba(85,17,39,.07));
+  transition: transform .22s var(--ease, ease), box-shadow .22s var(--ease, ease), background .22s var(--ease, ease);
+}
+
+.social-link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm, 0 18px 46px rgba(85,17,39,.10));
+}
+
+.social-icon {
+  width: 19px;
+  height: 19px;
+  display: block;
+  fill: currentColor;
+}
+
+.pinterest-about-card {
+  width: min(1140px, calc(100% - 40px));
+  margin: 34px auto 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+  padding: clamp(28px, 4vw, 44px);
+  border-radius: var(--radius-lg, 36px);
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 12%, transparent), transparent 24rem),
+    var(--surface, rgba(255,250,248,.88));
+  box-shadow: var(--shadow-sm, 0 18px 46px rgba(85,17,39,.10));
+}
+
+.pinterest-about-card h2 {
+  margin-top: 8px;
+  font-size: clamp(30px, 4vw, 54px);
+}
+
+.pinterest-about-card p {
+  max-width: 680px;
+  margin-top: 14px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+.pinterest-cta {
+  gap: 10px;
+  min-width: 190px;
+}
+
+.pinterest-cta .social-icon {
+  width: 20px;
+  height: 20px;
+}
+
+html[data-theme="dark"] .social-link,
+body[data-theme="dark"] .social-link {
+  background: color-mix(in srgb, var(--surface-solid, #171214) 88%, transparent);
+}
+
+@media (max-width: 720px) {
+  .footer-social {
+    justify-content: center;
+  }
+
+  .pinterest-about-card {
+    width: min(100% - 28px, 1140px);
+    grid-template-columns: 1fr;
+  }
+
+  .pinterest-cta {
+    width: 100%;
+  }
+}
