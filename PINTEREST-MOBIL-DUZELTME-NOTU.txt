@@ -1,6 +1,0 @@
-Pinterest mobil görüntü düzeltildi.
-
-- Devasa Pinterest ikon sorunu giderildi.
-- Hakkımda sayfasındaki büyük Pinterest kartı kompakt linke çevrildi.
-- Footer Pinterest linki mobilde küçük/temiz görünecek şekilde sınırlandı.
-- SVG ikonlara kesin width/height verildi.
