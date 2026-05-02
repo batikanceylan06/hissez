@@ -645,3 +645,98 @@ body:not(.authenticated) .panel-screen {
   border: 0 !important;
   box-shadow: none !important;
 }
+
+/* =========================================================
+   HISSEZ PANEL — Tema düzeltmesi
+   Index ile aynı localStorage key ve data-theme mantığıyla çalışır.
+   ========================================================= */
+html[data-theme="dark"],
+body[data-theme="dark"],
+body.dark-mode {
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] body,
+body[data-theme="dark"],
+body.dark-mode {
+  background:
+    radial-gradient(circle at top left, rgba(215, 93, 133, 0.18), transparent 32rem),
+    radial-gradient(circle at bottom right, rgba(128, 72, 126, 0.18), transparent 28rem),
+    var(--bg) !important;
+  color: var(--text);
+}
+
+html[data-theme="light"],
+body[data-theme="light"],
+body.light-mode {
+  color-scheme: light;
+}
+
+.login-theme-btn {
+  width: 100%;
+  margin-top: 18px;
+}
+
+html[data-theme="dark"] .login-card,
+html[data-theme="dark"] .panel-sidebar,
+html[data-theme="dark"] .panel-topbar,
+html[data-theme="dark"] .editor-card,
+html[data-theme="dark"] .posts-manager,
+html[data-theme="dark"] .admin-post-item,
+html[data-theme="dark"] .empty-state,
+html[data-theme="dark"] .check-row,
+body[data-theme="dark"] .login-card,
+body[data-theme="dark"] .panel-sidebar,
+body[data-theme="dark"] .panel-topbar,
+body[data-theme="dark"] .editor-card,
+body[data-theme="dark"] .posts-manager,
+body[data-theme="dark"] .admin-post-item,
+body[data-theme="dark"] .empty-state,
+body[data-theme="dark"] .check-row {
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select,
+body[data-theme="dark"] input,
+body[data-theme="dark"] textarea,
+body[data-theme="dark"] select {
+  color-scheme: dark;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+html[data-theme="dark"] option,
+body[data-theme="dark"] option {
+  background: var(--panel);
+  color: var(--text);
+}
+
+html[data-theme="dark"] .btn-light,
+body[data-theme="dark"] .btn-light {
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  color: var(--primary-dark);
+  border-color: var(--border);
+}
+
+html[data-theme="dark"] .user-pill,
+html[data-theme="dark"] .admin-post-meta span,
+body[data-theme="dark"] .user-pill,
+body[data-theme="dark"] .admin-post-meta span {
+  background: rgba(255, 143, 181, 0.11);
+  color: var(--primary-dark);
+}
+
+html[data-theme="dark"] .notice.success,
+body[data-theme="dark"] .notice.success {
+  color: #9ff0bd;
+}
+
+html[data-theme="dark"] .notice.error,
+body[data-theme="dark"] .notice.error {
+  color: #ff9aae;
+}

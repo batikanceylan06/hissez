@@ -42,12 +42,14 @@ forceLoginOnly();
 function setAdminTheme(theme) {
   root.dataset.theme = theme;
   body.dataset.theme = theme;
+  body.classList.toggle("dark-mode", theme === "dark");
+  body.classList.toggle("light-mode", theme !== "dark");
   localStorage.setItem(THEME_KEY, theme);
 
-  const button = document.getElementById("adminThemeToggle");
-  if (button) {
+  document.querySelectorAll("[data-admin-theme-toggle]").forEach((button) => {
     button.textContent = theme === "dark" ? "☀️ Aydınlık Mod" : "🌙 Karanlık Mod";
-  }
+    button.setAttribute("aria-pressed", String(theme === "dark"));
+  });
 }
 
 function initAdminTheme() {
@@ -56,7 +58,7 @@ function initAdminTheme() {
   setAdminTheme(saved || (prefersDark ? "dark" : "light"));
 
   document.addEventListener("click", (event) => {
-    if (!event.target.closest("#adminThemeToggle")) return;
+    if (!event.target.closest("[data-admin-theme-toggle]")) return;
     setAdminTheme(root.dataset.theme === "dark" ? "light" : "dark");
   });
 }
@@ -141,9 +143,15 @@ function slugify(value = "") {
     .replace(/-+/g, "-") || "yazi";
 }
 
-function getTime(post) {
-  const dateTime = post.date ? new Date(`${post.date}T12:00:00`).getTime() : 0;
-  return dateTime || post.createdAt || 0;
+function getDateTime(post) {
+  if (!post?.date) return 0;
+  const date = new Date(`${post.date}T12:00:00`).getTime();
+  return Number.isNaN(date) ? 0 : date;
+}
+
+function getSortTime(post) {
+  // Panelde de public siteyle aynı mantık: son eklenen en üstte.
+  return post.createdAt || post.updatedAt || getDateTime(post) || 0;
 }
 
 function formatDate(value) {
@@ -389,7 +397,7 @@ function watchPosts() {
   onValue(postsRef, (snapshot) => {
     allPosts = Object.entries(snapshot.val() || {})
       .map(([id, post]) => ({ id, ...post }))
-      .sort((a, b) => getTime(b) - getTime(a));
+      .sort((a, b) => getSortTime(b) - getSortTime(a));
 
     renderPosts();
   }, (error) => {

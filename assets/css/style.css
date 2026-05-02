@@ -198,7 +198,7 @@ button {
   inset: 0 0 auto;
   z-index: 1000;
   height: var(--header-h);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--bg) 88%, transparent), color-mix(in srgb, var(--bg) 76%, transparent));
   backdrop-filter: blur(22px) saturate(1.25);
@@ -542,7 +542,7 @@ p {
 }
 
 .soft-section {
-  border-block: 1px solid var(--border);
+  border-block: 0;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface) 34%, transparent), color-mix(in srgb, var(--surface) 20%, transparent));
 }
@@ -993,7 +993,7 @@ p {
 
 /* ---------- Footer ---------- */
 .site-footer {
-  border-top: 1px solid var(--border);
+  border-top: 0;
   background: color-mix(in srgb, var(--bg) 82%, transparent);
 }
 
@@ -1259,7 +1259,7 @@ p {
     grid-column: 1 / -1;
     min-height: 58px;
     border-left: 0;
-    border-top: 1px solid var(--border);
+    border-top: 0;
   }
 
   .about-grid {
@@ -1329,7 +1329,7 @@ p {
 
   .post-card-date {
     border-right: 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 0;
   }
 
   .poem-book-entry {
@@ -1339,7 +1339,7 @@ p {
   .poem-book-left {
     min-height: 170px;
     border-right: 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 0;
   }
 
   .poem-book-right {
@@ -2250,4 +2250,255 @@ body[data-theme="dark"] .pinterest-feature-v2__mini-text small {
     max-width: 13px !important;
     max-height: 13px !important;
   }
+}
+
+/* =========================================================
+   HISSEZ — Arka plan görseli + şiir okunabilirlik düzeltmesi
+   Açık mod: beyaz/silik, Koyu mod: karartılmış
+   ========================================================= */
+:root {
+  --hissez-bg-image: url("../img/hissez-bg.jpeg");
+}
+
+body {
+  background:
+    radial-gradient(circle at 8% 10%, color-mix(in srgb, var(--primary) 13%, transparent), transparent 34rem),
+    radial-gradient(circle at 92% 8%, color-mix(in srgb, var(--primary-2) 10%, transparent), transparent 32rem),
+    linear-gradient(180deg, var(--bg), var(--bg-2) 52%, var(--bg));
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image: var(--hissez-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transform: scale(1.035);
+  opacity: .20;
+  filter: blur(2px) grayscale(.08) saturate(.92);
+  mask-image: none;
+  transition: opacity .35s var(--ease), filter .35s var(--ease);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .80), rgba(255, 247, 250, .90) 50%, rgba(255, 255, 255, .84)),
+    radial-gradient(circle at 16% 32%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 20rem),
+    radial-gradient(circle at 80% 54%, color-mix(in srgb, var(--primary-3) 7%, transparent), transparent 22rem);
+  filter: none;
+  transition: background .35s var(--ease);
+}
+
+html[data-theme="dark"] body::before,
+body[data-theme="dark"]::before {
+  opacity: .28;
+  filter: blur(2px) brightness(.42) contrast(1.08) saturate(.85);
+}
+
+html[data-theme="dark"] body::after,
+body[data-theme="dark"]::after {
+  background:
+    linear-gradient(180deg, rgba(9, 7, 8, .76), rgba(17, 11, 15, .88) 52%, rgba(9, 7, 8, .84)),
+    radial-gradient(circle at 12% 18%, rgba(223, 90, 139, .14), transparent 26rem),
+    radial-gradient(circle at 84% 60%, rgba(226, 185, 110, .08), transparent 24rem);
+}
+
+.post-card,
+.featured-post,
+.poem-book-entry,
+.daily-timeline-card,
+.article-card,
+.info-card,
+.about-card,
+.latest-card,
+.section-card,
+.empty-state {
+  backdrop-filter: blur(16px) saturate(1.12);
+  -webkit-backdrop-filter: blur(16px) saturate(1.12);
+}
+
+html[data-theme="dark"] .post-card,
+html[data-theme="dark"] .featured-post,
+html[data-theme="dark"] .poem-book-entry,
+html[data-theme="dark"] .daily-timeline-card,
+html[data-theme="dark"] .article-card,
+html[data-theme="dark"] .info-card,
+html[data-theme="dark"] .about-card,
+html[data-theme="dark"] .latest-card,
+html[data-theme="dark"] .section-card,
+html[data-theme="dark"] .empty-state {
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+}
+
+/* =========================================================
+   HISSEZ v21 — Arka plan daha görünür ayarı
+   Kullanıcının istediği: açık modda beyaz/silik ama belli,
+   koyu modda karartılmış ama resim seçilir durumda.
+   ========================================================= */
+body::before {
+  opacity: .52 !important;
+  filter: blur(.6px) grayscale(0) saturate(1.08) contrast(1.05) !important;
+  transform: scale(1.025) !important;
+}
+
+body::after {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.46), rgba(255,247,250,.60) 48%, rgba(255,255,255,.54)),
+    radial-gradient(circle at 16% 32%, color-mix(in srgb, var(--primary) 5%, transparent), transparent 20rem),
+    radial-gradient(circle at 80% 54%, color-mix(in srgb, var(--primary-3) 4%, transparent), transparent 22rem) !important;
+}
+
+html[data-theme="dark"] body::before,
+body[data-theme="dark"]::before {
+  opacity: .58 !important;
+  filter: blur(.6px) brightness(.48) contrast(1.18) saturate(1.04) !important;
+}
+
+html[data-theme="dark"] body::after,
+body[data-theme="dark"]::after {
+  background:
+    linear-gradient(180deg, rgba(9,7,8,.48), rgba(17,11,15,.66) 52%, rgba(9,7,8,.60)),
+    radial-gradient(circle at 12% 18%, rgba(223,90,139,.10), transparent 26rem),
+    radial-gradient(circle at 84% 60%, rgba(226,185,110,.06), transparent 24rem) !important;
+}
+
+/* Arka plan güçlenince yazı kartları okunaklı kalsın */
+.post-card,
+.featured-post,
+.poem-book-entry,
+.daily-timeline-card,
+.article-card,
+.info-card,
+.note-card,
+.glass-card,
+.content-card {
+  backdrop-filter: blur(14px) saturate(1.05);
+  -webkit-backdrop-filter: blur(14px) saturate(1.05);
+}
+
+
+/* =========================================================
+   V23 - Tek ton arka plan düzeltmesi
+   Bölüm geçişlerinde oluşan renk bantlarını/ton farklarını kaldırır.
+   Sayfa boyunca tek sabit arka plan görseli + tek overlay kullanılır.
+========================================================= */
+
+.site-header,
+.soft-section,
+.section,
+.hero,
+.page-hero,
+.latest-section,
+.closing-section,
+.site-footer,
+main,
+main > section {
+  background: transparent !important;
+  background-image: none !important;
+  border-top: 0 !important;
+  border-bottom: 0 !important;
+  border-block: 0 !important;
+}
+
+/* Header sabit kalsın ama alttaki görsel/ton bölünmesin */
+.site-header {
+  background: rgba(255, 255, 255, 0.34) !important;
+  backdrop-filter: blur(18px) saturate(1.12) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.12) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .site-header,
+body.dark-mode .site-header {
+  background: rgba(18, 10, 18, 0.34) !important;
+  box-shadow: none !important;
+}
+
+/* Açık mod: tek beyaz perde */
+body::after {
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.56),
+      rgba(255,255,255,0.56)
+    ) !important;
+}
+
+/* Koyu mod: tek karanlık perde */
+html[data-theme="dark"] body::after,
+body.dark-mode::after {
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(12, 7, 13, 0.62),
+      rgba(12, 7, 13, 0.62)
+    ) !important;
+}
+
+/* Arka plan tüm sayfada aynı yoğunlukta kalsın */
+body::before {
+  opacity: 0.48 !important;
+  filter: blur(0.8px) grayscale(2%) saturate(0.96) !important;
+}
+
+html[data-theme="dark"] body::before,
+body.dark-mode::before {
+  opacity: 0.52 !important;
+  filter: blur(0.8px) brightness(0.52) contrast(1.12) saturate(0.95) !important;
+}
+
+/* Büyük hero altlarında kalan keskin çizgi/ışık farklarını sıfırla */
+.hero::before,
+.hero::after,
+.page-hero::before,
+.page-hero::after,
+.soft-section::before,
+.soft-section::after,
+.section::before,
+.section::after {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Kartlar okunabilir kalsın, arka plan tonunu bölmesin */
+.featured-card,
+.post-card,
+.note-card,
+.poem-card,
+.section-card,
+.about-card,
+.music-player,
+.glass-card {
+  background: rgba(255,255,255,0.62) !important;
+  backdrop-filter: blur(16px) saturate(1.08) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.08) !important;
+}
+
+html[data-theme="dark"] .featured-card,
+html[data-theme="dark"] .post-card,
+html[data-theme="dark"] .note-card,
+html[data-theme="dark"] .poem-card,
+html[data-theme="dark"] .section-card,
+html[data-theme="dark"] .about-card,
+html[data-theme="dark"] .music-player,
+html[data-theme="dark"] .glass-card,
+body.dark-mode .featured-card,
+body.dark-mode .post-card,
+body.dark-mode .note-card,
+body.dark-mode .poem-card,
+body.dark-mode .section-card,
+body.dark-mode .about-card,
+body.dark-mode .music-player,
+body.dark-mode .glass-card {
+  background: rgba(24, 13, 25, 0.62) !important;
 }

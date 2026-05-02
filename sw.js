@@ -1,4 +1,4 @@
-const CACHE_NAME = "hissez-public-v19-sequence-theme-fix";
+const CACHE_NAME = "hissez-public-v21-bg-visible";
 const ASSETS = [
   "/",
   "/index.html",
@@ -11,6 +11,7 @@ const ASSETS = [
   "/assets/js/posts.js",
   "/assets/js/firebase-config.js",
   "/assets/img/hissez-logo.png",
+  "/assets/img/hissez-bg.jpeg",
   "/assets/audio/hissez-sessiz-ambiyans.ogg",
   "/assets/audio/hissez-gece-defteri.ogg",
   "/assets/audio/hissez-siir-odasi.ogg",

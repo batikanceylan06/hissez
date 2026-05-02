@@ -48,16 +48,23 @@ function typeLabel(type) {
   return type === "daily" ? "Gün Notu" : "Şiir";
 }
 
-function getTime(post) {
-  const dateTime = post.date ? new Date(`${post.date}T12:00:00`).getTime() : 0;
-  return dateTime || post.createdAt || 0;
+function getDateTime(post) {
+  if (!post?.date) return 0;
+  const date = new Date(`${post.date}T12:00:00`).getTime();
+  return Number.isNaN(date) ? 0 : date;
+}
+
+function getSortTime(post) {
+  // Liste mantığı: son eklenen yazı en üstte görünür.
+  // Tarih alanı sadece yazının görünen tarihi içindir; sıralamayı bozmaz.
+  return post.createdAt || post.updatedAt || getDateTime(post) || 0;
 }
 
 function normalizePosts(value) {
   return Object.entries(value || {})
     .map(([id, post]) => ({ id, ...post }))
     .filter((post) => post.status === "published")
-    .sort((a, b) => getTime(b) - getTime(a));
+    .sort((a, b) => getSortTime(b) - getSortTime(a));
 }
 
 function postExcerpt(post, max = 145) {
@@ -148,9 +155,9 @@ function buildSequenceMap(posts) {
   posts
     .slice()
     .sort((a, b) => {
-      const timeDiff = getTime(a) - getTime(b);
+      const timeDiff = getSortTime(a) - getSortTime(b);
       if (timeDiff !== 0) return timeDiff;
-      return (a.createdAt || 0) - (b.createdAt || 0);
+      return String(a.id || "").localeCompare(String(b.id || ""));
     })
     .forEach((post, index) => {
       sequenceMap.set(post.id, index + 1);
