@@ -1,4 +1,0 @@
-Hakkımda sayfasındaki Pinterest alanı yeniden tasarlandı.
-- Sadece buton gibi duran yapı kaldırıldı.
-- Daha dengeli başlık + açıklama + buton düzeni eklendi.
-- Mobil uyumlu, kart hissi veren bir bölüm yapıldı.
