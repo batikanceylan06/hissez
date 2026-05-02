@@ -1,3 +1,0 @@
-Hakkımda sayfasındaki Pinterest alanında P harfi kaldırıldı.
-Yerine sabit boyutlu Pinterest SVG logosu eklendi.
-Mobilde büyümemesi için tüm ölçüler CSS ile kilitlendi.
