@@ -16,7 +16,7 @@
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="panel.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Hissez Panel">
 
 </head>
@@ -67,7 +67,10 @@
             <p class="eyebrow">Yönetim paneli</p>
             <h1>Şiir ve gün notlarını yönet</h1>
           </div>
-          <div class="user-pill" id="userEmail">Giriş yapılıyor...</div>
+          <div class="panel-topbar-actions">
+            <button class="btn btn-light theme-btn" id="adminThemeToggle" type="button" aria-label="Tema değiştir">🌙 Karanlık Mod</button>
+            <div class="user-pill" id="userEmail">Giriş yapılıyor...</div>
+          </div>
         </header>
 
         <div id="adminNotice" class="notice" hidden></div>

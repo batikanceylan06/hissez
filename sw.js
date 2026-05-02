@@ -1,4 +1,4 @@
-const CACHE_NAME = "hissez-public-v18-pinterest-logo-fix";
+const CACHE_NAME = "hissez-public-v19-sequence-theme-fix";
 const ASSETS = [
   "/",
   "/index.html",
@@ -36,9 +36,20 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  event.respondWith(caches.match(event.request).then((response) => response || fetch(event.request).then((networkResponse) => {
-    const clone = networkResponse.clone();
-    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-    return networkResponse;
-  }).catch(() => caches.match('/index.html'))));
+
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request)
+      .then((networkResponse) => {
+        const clone = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return networkResponse;
+      })
+      .catch(() => caches.match(event.request).then((response) => response || caches.match("/index.html")))
+  );
 });

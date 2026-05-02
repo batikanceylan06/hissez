@@ -5,6 +5,8 @@ import { app, adminEmails } from "./firebase-config.js";
 const auth = getAuth(app);
 const db = getDatabase(app);
 const body = document.body;
+const root = document.documentElement;
+const THEME_KEY = "hissez-theme";
 
 const loginScreen = document.getElementById("loginScreen");
 const panelScreen = document.getElementById("panelScreen");
@@ -32,7 +34,53 @@ let allPosts = [];
 let postsRef = null;
 let postsListenerStarted = false;
 
+initAdminTheme();
+cleanupPanelServiceWorker();
 forceLoginOnly();
+
+
+function setAdminTheme(theme) {
+  root.dataset.theme = theme;
+  body.dataset.theme = theme;
+  localStorage.setItem(THEME_KEY, theme);
+
+  const button = document.getElementById("adminThemeToggle");
+  if (button) {
+    button.textContent = theme === "dark" ? "☀️ Aydınlık Mod" : "🌙 Karanlık Mod";
+  }
+}
+
+function initAdminTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  setAdminTheme(saved || (prefersDark ? "dark" : "light"));
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#adminThemeToggle")) return;
+    setAdminTheme(root.dataset.theme === "dark" ? "light" : "dark");
+  });
+}
+
+async function cleanupPanelServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => {
+      if (registration.active?.scriptURL.includes("panel-sw.js") || registration.installing?.scriptURL.includes("panel-sw.js") || registration.waiting?.scriptURL.includes("panel-sw.js")) {
+        return registration.unregister();
+      }
+      return Promise.resolve();
+    }));
+
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key.includes("hissez-panel")).map((key) => caches.delete(key)));
+    }
+  } catch (error) {
+    console.warn("Panel cache temizlenemedi:", error);
+  }
+}
 
 function forceLoginOnly() {
   body.classList.remove("authenticated");
@@ -453,11 +501,3 @@ onAuthStateChanged(auth, async (user) => {
   watchPosts();
 });
 
-
-if ("serviceWorker" in navigator && location.protocol !== "file:") {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/panel-sw.js").catch((error) => {
-      console.error("Panel service worker kaydı başarısız:", error);
-    });
-  });
-}

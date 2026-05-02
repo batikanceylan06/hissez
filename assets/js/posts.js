@@ -90,9 +90,9 @@ function renderCard(post) {
 
 
 
-function renderPoemBook(post, index = 0) {
+function renderPoemBook(post, pageNumber = 1) {
   const href = `yazi.html?id=${encodeURIComponent(post.id)}`;
-  const pageNo = String(index + 1).padStart(2, "0");
+  const pageNo = String(pageNumber).padStart(2, "0");
   return `
     <article class="poem-book-entry">
       <div class="poem-book-left">
@@ -140,6 +140,23 @@ function renderDailyTimeline(post, index = 0) {
 function renderEmpty(target, text) {
   if (!target) return;
   target.innerHTML = `<div class="empty-state">${escapeHTML(text)}</div>`;
+}
+
+function buildSequenceMap(posts) {
+  const sequenceMap = new Map();
+
+  posts
+    .slice()
+    .sort((a, b) => {
+      const timeDiff = getTime(a) - getTime(b);
+      if (timeDiff !== 0) return timeDiff;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    })
+    .forEach((post, index) => {
+      sequenceMap.set(post.id, index + 1);
+    });
+
+  return sequenceMap;
 }
 
 function renderHome(posts) {
@@ -193,8 +210,10 @@ function renderList(posts) {
   }
 
   if (pageType === "poem") {
+    const sequenceMap = buildSequenceMap(filtered);
+
     grid.className = "poem-book-list reveal is-visible";
-    grid.innerHTML = filtered.map((post, index) => renderPoemBook(post, index)).join("");
+    grid.innerHTML = filtered.map((post) => renderPoemBook(post, sequenceMap.get(post.id))).join("");
     return;
   }
 
