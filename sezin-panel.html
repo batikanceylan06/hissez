@@ -30,8 +30,6 @@
         </div>
         <h1>Sezin’in yazı paneli</h1>
         <p>Bu alan sadece yetkili kullanıcı girişiyle açılır.</p>
-        <button class="btn btn-light theme-btn login-theme-btn" data-admin-theme-toggle type="button" aria-label="Tema değiştir">🌙 Karanlık Mod</button>
-
         <div id="loginNotice" class="notice" hidden></div>
 
         <form id="loginForm" class="auth-form">
@@ -43,6 +41,9 @@
             <span>Şifre</span>
             <input type="password" id="loginPassword" autocomplete="current-password" required placeholder="••••••••">
           </label>
+          <div class="auth-extra">
+            <button class="forgot-password-link" id="forgotPasswordButton" type="button">Şifremi unuttum</button>
+          </div>
           <button class="btn btn-primary" type="submit">Giriş Yap</button>
         </form>
       </div>

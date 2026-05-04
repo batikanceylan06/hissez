@@ -1,4 +1,4 @@
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import { getDatabase, ref, onValue, off, push, set, update, remove } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 import { app, adminEmails } from "./firebase-config.js";
 
@@ -12,6 +12,7 @@ const loginScreen = document.getElementById("loginScreen");
 const panelScreen = document.getElementById("panelScreen");
 const loginForm = document.getElementById("loginForm");
 const loginNotice = document.getElementById("loginNotice");
+const forgotPasswordButton = document.getElementById("forgotPasswordButton");
 const adminNotice = document.getElementById("adminNotice");
 const userEmail = document.getElementById("userEmail");
 
@@ -119,9 +120,18 @@ function clearNotice(target) {
   target.textContent = "";
 }
 
+function normalizeEmail(email = "") {
+  return String(email).toLowerCase().trim();
+}
+
+function isAdminEmail(email = "") {
+  const targetEmail = normalizeEmail(email);
+  return adminEmails.map((item) => normalizeEmail(item)).includes(targetEmail);
+}
+
 function isAllowedUser(user) {
   if (!user || !user.email) return false;
-  return adminEmails.map((email) => email.toLowerCase().trim()).includes(user.email.toLowerCase().trim());
+  return isAdminEmail(user.email);
 }
 
 function today() {
@@ -411,6 +421,8 @@ function firebaseMessage(error, fallback) {
 
   if (code === "auth/invalid-credential") return "E-posta veya şifre hatalı.";
   if (code === "auth/user-not-found") return "Bu e-posta için kullanıcı bulunamadı.";
+  if (code === "auth/invalid-email") return "E-posta adresi geçerli görünmüyor.";
+  if (code === "auth/missing-email") return "Şifre sıfırlama için e-posta adresini yazmalısın.";
   if (code === "auth/wrong-password") return "Şifre hatalı.";
   if (code === "auth/too-many-requests") return "Çok fazla deneme yapıldı. Bir süre sonra tekrar dene.";
   if (code === "auth/network-request-failed") return "Ağ bağlantısı kurulamadı. İnterneti ve Firebase erişimini kontrol et.";
@@ -439,6 +451,43 @@ loginForm.addEventListener("submit", async (event) => {
   } finally {
     button.disabled = false;
     button.textContent = "Giriş Yap";
+  }
+});
+
+forgotPasswordButton.addEventListener("click", async () => {
+  clearNotice(loginNotice);
+
+  const emailInput = document.getElementById("loginEmail");
+  const email = emailInput.value.trim();
+
+  if (!email) {
+    showNotice(loginNotice, "error", "Şifre sıfırlama linki için önce e-posta adresini yaz.");
+    emailInput.focus();
+    return;
+  }
+
+  if (!isAdminEmail(email)) {
+    showNotice(loginNotice, "error", "Bu e-posta panel yetkilisi olarak tanımlı değil. firebase-config.js içindeki admin mailiyle dene.");
+    emailInput.focus();
+    return;
+  }
+
+  forgotPasswordButton.disabled = true;
+  forgotPasswordButton.textContent = "Link gönderiliyor...";
+
+  try {
+    await sendPasswordResetEmail(auth, email, {
+      url: `${window.location.origin}${window.location.pathname}`,
+      handleCodeInApp: false
+    });
+
+    showNotice(loginNotice, "success", "Şifre sıfırlama linki e-posta adresine gönderildi. Gelen kutunu ve spam klasörünü kontrol et.");
+  } catch (error) {
+    showNotice(loginNotice, "error", firebaseMessage(error, "Şifre sıfırlama linki gönderilemedi. Firebase Authentication ayarlarını kontrol et."));
+    console.error(error);
+  } finally {
+    forgotPasswordButton.disabled = false;
+    forgotPasswordButton.textContent = "Şifremi unuttum";
   }
 });
 

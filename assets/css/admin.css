@@ -740,3 +740,33 @@ html[data-theme="dark"] .notice.error,
 body[data-theme="dark"] .notice.error {
   color: #ff9aae;
 }
+
+.auth-extra {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
+
+.forgot-password-link {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font-weight: 900;
+  padding: 4px 2px;
+  text-decoration: none;
+}
+
+.forgot-password-link:hover {
+  text-decoration: underline;
+}
+
+.forgot-password-link:disabled {
+  cursor: progress;
+  opacity: 0.65;
+  text-decoration: none;
+}
+
+html[data-theme="dark"] .forgot-password-link,
+body[data-theme="dark"] .forgot-password-link {
+  color: var(--primary-dark);
+}
