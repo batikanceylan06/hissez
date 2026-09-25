@@ -1,0 +1,51 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "posts": {
+      ".read": "(auth != null && (auth.token.admin === true || auth.token.email === 'batikanceylan06@gmail.com' || auth.token.email === 'kocasezinkoca@icloud.com')) || (query.orderByChild === 'status' && query.equalTo === 'published')",
+      ".write": "auth != null && (auth.token.admin === true || auth.token.email === 'batikanceylan06@gmail.com' || auth.token.email === 'kocasezinkoca@icloud.com')",
+      ".indexOn": ["status"],
+      "$postId": {
+        ".read": "data.child('status').val() === 'published' || (auth != null && (auth.token.admin === true || auth.token.email === 'batikanceylan06@gmail.com' || auth.token.email === 'kocasezinkoca@icloud.com'))",
+        ".validate": "newData.hasChildren(['title', 'slug', 'content', 'type', 'status', 'date', 'createdAt', 'updatedAt'])",
+        "title": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
+        },
+        "slug": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 180 && newData.val().matches(/^[a-z0-9]+(-[a-z0-9]+)*$/)"
+        },
+        "content": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100000"
+        },
+        "type": {
+          ".validate": "newData.isString() && (newData.val() === 'poem' || newData.val() === 'daily')"
+        },
+        "category": {
+          ".validate": "newData.isString() && newData.val().length <= 50"
+        },
+        "status": {
+          ".validate": "newData.isString() && (newData.val() === 'published' || newData.val() === 'draft')"
+        },
+        "featured": {
+          ".validate": "newData.isBoolean()"
+        },
+        "excerpt": {
+          ".validate": "newData.isString() && newData.val().length <= 220"
+        },
+        "date": {
+          ".validate": "newData.isString() && newData.val().matches(/^(19|20)[0-9][0-9]-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])$/)"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}

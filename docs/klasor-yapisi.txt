@@ -1,0 +1,37 @@
+HISSEZ PROJE YAPISI (Düzenlenmiş)
+
+Kök klasör:
+- index.html
+- siirler.html
+- gun-notlari.html
+- yazi.html
+- hakkimda.html
+- sezin-panel.html
+- site.webmanifest
+- panel.webmanifest
+- sw.js
+- robots.txt
+- sitemap.xml
+- vercel.json
+- firebase.json
+- scripts/
+- assets/
+- config/
+- docs/
+
+assets/
+- audio/
+- css/
+- icons/
+- img/
+- js/
+
+config/
+- firebase-rules.json
+
+docs/
+- README.md
+
+scripts/
+- set-admin-claim.mjs
+- test-firebase-rules.mjs
