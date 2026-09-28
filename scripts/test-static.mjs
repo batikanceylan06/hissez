@@ -79,6 +79,7 @@ for (const requiredPaginationToken of [
 
 for (const requiredBlogToken of [
   "function renderArchive(posts)",
+  "function renderArchiveOverview(posts)",
   "function initGlobalSearch()",
   "function renderRelated(posts, post)",
   "function initReadingProgress(enabled)",
@@ -96,5 +97,9 @@ assert.ok(index.includes("https://www.instagram.com/hissezz"), "Ana sayfa Instag
 
 const sitemap = readFileSync(resolve(root, "sitemap.xml"), "utf8");
 assert.ok(sitemap.includes("https://hissez.com/arsiv.html"), "Arşiv sitemap içinde değil");
+
+const archivePage = readFileSync(resolve(root, "arsiv.html"), "utf8");
+assert.ok(archivePage.includes('id="archiveOverview"'), "Arşiv yıl/ay ve kategori özeti eksik");
+assert.ok(posts.includes("· ${minutes} dk okuma"), "Ortak blog kartlarında okuma süresi eksik");
 
 console.log("Statik kontroller geçti: HTML/CSP, arşiv, keşif, arama, ilişkili yazılar, Canvas filigranı, çok sayfalı paylaşım ve PWA cache listesi.");

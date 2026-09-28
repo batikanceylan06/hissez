@@ -198,18 +198,17 @@ function postExcerpt(post, max = 145) {
 
 function renderCard(post) {
   const href = `yazi.html?id=${encodeURIComponent(post.id)}`;
-  const date = dateParts(post.date);
+  const minutes = readingMinutes(post.content);
   return `
     <article class="post-card blog-card">
-      <div class="post-card-date"><strong>${date.day}</strong><span>${date.month}</span></div>
       <div>
         <div class="post-meta">
-          <span>${typeLabel(post.type)}</span><span>${formatDate(post.date)}</span>${categoryChip(post)}
+          <span>${typeLabel(post.type)}</span>${categoryChip(post)}
         </div>
         <h3>${escapeHTML(post.title || "Başlıksız Yazı")}</h3>
         <p>${postExcerpt(post)}</p>
       </div>
-      <a class="read-more" href="${href}">${post.type === "poem" ? "Şiiri Oku" : "Yazıyı Oku"}</a>
+      <div class="post-card-footer"><span>${formatDate(post.date)} · ${minutes} dk okuma</span><a class="read-more" href="${href}">Oku →</a></div>
     </article>`;
 }
 
@@ -264,7 +263,7 @@ function renderHome(posts) {
   const featured = document.getElementById("featuredPost");
   const latestPosts = document.getElementById("latestPosts");
   const categoryTarget = document.getElementById("categoryDiscovery");
-  const featuredPost = posts.find((post) => post.featured) || posts[0];
+  const featuredPost = posts.find((post) => post.featured);
 
   if (featured && featuredPost) {
     featured.closest("section")?.removeAttribute("hidden");
@@ -272,11 +271,12 @@ function renderHome(posts) {
       <article class="featured-post">
         <div class="featured-post-copy">
           <p class="eyebrow">Editörün seçimi</p>
-          <div class="post-meta"><span>${typeLabel(featuredPost.type)}</span><span>${formatDate(featuredPost.date)}</span>${categoryChip(featuredPost)}</div>
+          <div class="post-meta"><span>${typeLabel(featuredPost.type)}</span>${categoryChip(featuredPost)}</div>
           <h3>${escapeHTML(featuredPost.title || "Başlıksız Yazı")}</h3>
           <p>${postExcerpt(featuredPost, 220)}</p>
+          <p class="featured-reading-meta">${formatDate(featuredPost.date)} · ${readingMinutes(featuredPost.content)} dk okuma</p>
         </div>
-        <a class="btn btn-primary" href="yazi.html?id=${encodeURIComponent(featuredPost.id)}">Yazıyı Oku</a>
+        <a class="btn btn-primary" href="yazi.html?id=${encodeURIComponent(featuredPost.id)}">Okumaya Devam Et</a>
       </article>`;
   } else if (featured) {
     featured.closest("section")?.setAttribute("hidden", "");
@@ -435,6 +435,7 @@ function renderArchive(posts) {
   const grid = document.getElementById("postsGrid");
   if (!grid) return;
   initListTools(posts);
+  renderArchiveOverview(posts);
   const filtered = filterPosts(posts, listFilters, readIdList(FAVORITES_KEY));
   const favoritesButton = document.querySelector('[data-list-action="favorites"]');
   if (favoritesButton) {
@@ -447,6 +448,26 @@ function renderArchive(posts) {
   grid.innerHTML = filtered.length
     ? filtered.map(renderCard).join("")
     : `<div class="empty-state">${listFilters.favorites ? "Henüz favorin yok." : "Bu filtrelere uygun yazı bulunamadı."}</div>`;
+}
+
+function renderArchiveOverview(posts) {
+  const target = document.getElementById("archiveOverview");
+  if (!target) return;
+  const archive = buildArchive(posts);
+  const categories = categoryCounts(posts);
+  const monthGroups = archive.map(({ year, months }) => `
+    <section class="archive-overview-year">
+      <h3>${year}</h3>
+      <div>${months.map(({ month, count }) => {
+        const active = listFilters.year === year && String(listFilters.month).padStart(2, "0") === month;
+        return `<a href="arsiv.html?year=${year}&month=${Number(month)}"${active ? ' aria-current="true"' : ""}>${MONTHS[Number(month) - 1]} <span>${count} yazı</span></a>`;
+      }).join("")}</div>
+    </section>`).join("");
+  const categoryLinks = categories.map(({ key, label, count }) => `
+    <a href="arsiv.html?category=${encodeURIComponent(key)}"${listFilters.category === key ? ' aria-current="true"' : ""}>${escapeHTML(label)} <span>${count}</span></a>`).join("");
+  target.innerHTML = `
+    <div class="archive-overview-block"><p class="eyebrow">Yıllara göre</p><div class="archive-overview-years">${monthGroups || "<p>Arşiv henüz boş.</p>"}</div></div>
+    <div class="archive-overview-block"><p class="eyebrow">Kategoriler</p><div class="archive-overview-categories">${categoryLinks || "<p>Henüz kategori yok.</p>"}</div></div>`;
 }
 
 function globalSearchMatches(queryValue) {
@@ -505,6 +526,11 @@ function initGlobalSearch() {
   });
   dialog.querySelector("[data-search-close]").addEventListener("click", close);
   dialog.addEventListener("click", (event) => { if (event.target === dialog) close(); });
+  dialog.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    close();
+  });
   input.addEventListener("input", () => renderGlobalSearch(input.value));
   globalSearchReady = true;
 }

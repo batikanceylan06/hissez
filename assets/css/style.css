@@ -3211,16 +3211,6 @@ body.dark-mode .glass-card {
 /* =========================================================
    HISSEZ v27 — Edebiyat blogu, arşiv ve keşif katmanı
    ========================================================= */
-@view-transition {
-  navigation: auto;
-}
-
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: .28s;
-  animation-timing-function: var(--ease);
-}
-
 body[data-page="home"] .hero {
   min-height: clamp(500px, 66vh, 590px);
   padding-block: clamp(88px, 11vh, 126px) clamp(56px, 8vh, 82px);
@@ -3284,6 +3274,28 @@ body[data-page="home"] .hero h1 {
 
 .blog-card .read-more {
   margin-top: auto;
+}
+
+.post-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.post-card-footer > span,
+.featured-reading-meta {
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 600;
+}
+
+.post-card-footer .read-more {
+  margin-top: 0;
+  white-space: nowrap;
 }
 
 .featured-shell {
@@ -3424,6 +3436,71 @@ body[data-page="home"] .hero h1 {
 .archive-tools {
   position: relative;
   z-index: 5;
+}
+
+.archive-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(260px, .75fr);
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.archive-overview-block {
+  padding: clamp(22px, 4vw, 34px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  box-shadow: var(--shadow-xs);
+}
+
+.archive-overview-years {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  margin-top: 18px;
+}
+
+.archive-overview-year h3 {
+  margin-bottom: 10px;
+  color: var(--primary);
+  font-size: 1.8rem;
+}
+
+.archive-overview-year > div,
+.archive-overview-categories {
+  display: grid;
+  gap: 7px;
+}
+
+.archive-overview-year a,
+.archive-overview-categories a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  color: var(--text);
+  font-weight: 700;
+  transition: color .2s ease, background .2s ease;
+}
+
+.archive-overview-year a span,
+.archive-overview-categories a span {
+  color: var(--muted);
+  font-size: .74rem;
+  font-weight: 600;
+}
+
+.archive-overview-year a:hover,
+.archive-overview-categories a:hover,
+.archive-overview a[aria-current="true"] {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.archive-overview-categories {
+  margin-top: 18px;
 }
 
 .detail-breadcrumb {
@@ -3665,6 +3742,7 @@ body[data-page="home"] .hero h1 {
 html[data-theme="dark"] .featured-post,
 html[data-theme="dark"] .author-mini-card,
 html[data-theme="dark"] .category-discovery-card,
+html[data-theme="dark"] .archive-overview-block,
 html[data-theme="dark"] .global-search-dialog {
   background: color-mix(in srgb, var(--surface) 91%, #12070c) !important;
 }
@@ -3677,6 +3755,10 @@ html[data-theme="dark"] .global-search-dialog {
 
   .category-discovery-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .archive-overview {
+    grid-template-columns: 1fr;
   }
 
   .related-post-grid {
@@ -3756,6 +3838,10 @@ html[data-theme="dark"] .global-search-dialog {
   .home-post-grid,
   .archive-post-grid,
   .category-discovery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .archive-overview-years {
     grid-template-columns: 1fr;
   }
 
@@ -3847,14 +3933,17 @@ html[data-theme="dark"] .global-search-dialog {
     font-size: 2rem;
   }
 
+  .post-card-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .category-discovery-card {
     min-height: 96px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(root),
-  ::view-transition-new(root),
   .site-nav,
   .blog-card,
   .category-discovery-card {
