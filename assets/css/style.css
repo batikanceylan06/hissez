@@ -3739,6 +3739,13 @@ body[data-page="home"] .hero h1 {
   margin-top: 8px;
 }
 
+.instagram-fixed-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  color: currentColor;
+}
+
 html[data-theme="dark"] .featured-post,
 html[data-theme="dark"] .author-mini-card,
 html[data-theme="dark"] .category-discovery-card,

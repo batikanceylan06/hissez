@@ -95,6 +95,9 @@ assert.ok(index.includes('id="categoryDiscovery"'), "Ana sayfa kategori keşfi e
 assert.ok(!index.includes("Yarım kalan sayfalar"), "Kaldırılan yarım kalan sayfalar alanı hâlâ mevcut");
 assert.ok(index.includes("https://www.instagram.com/hissezz"), "Ana sayfa Instagram bağlantısı eksik");
 
+const about = readFileSync(resolve(root, "hakkimda.html"), "utf8");
+assert.ok(about.includes('class="instagram-fixed-icon"'), "Hakkımda Instagram logosu eksik");
+
 const sitemap = readFileSync(resolve(root, "sitemap.xml"), "utf8");
 assert.ok(sitemap.includes("https://hissez.com/arsiv.html"), "Arşiv sitemap içinde değil");
 
