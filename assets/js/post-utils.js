@@ -67,6 +67,21 @@ export function uniqueCategories(posts) {
     .sort((a, b) => a.label.localeCompare(b.label, "tr-TR"));
 }
 
+export function categoryCounts(posts, limit = Infinity) {
+  const categories = new Map();
+  posts.forEach((post) => {
+    const label = meaningfulCategory(post);
+    const key = normalizeComparable(label);
+    if (!key) return;
+    const current = categories.get(key) || { key, label, count: 0 };
+    current.count += 1;
+    categories.set(key, current);
+  });
+  return [...categories.values()]
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "tr-TR"))
+    .slice(0, limit);
+}
+
 export function filterPosts(posts, filters = {}, favoriteIds = []) {
   const query = normalizeComparable(filters.query);
   const category = normalizeComparable(filters.category);
@@ -139,6 +154,24 @@ export function seriesContext(posts, current) {
     previous: index > 0 ? entries[index - 1] : null,
     next: index < entries.length - 1 ? entries[index + 1] : null
   };
+}
+
+export function relatedPosts(posts, current, limit = 3) {
+  if (!current) return [];
+  const currentSeries = normalizeComparable(current.series);
+  const currentCategory = normalizeComparable(meaningfulCategory(current));
+  return posts
+    .filter((post) => post.id !== current.id)
+    .map((post) => {
+      let score = 0;
+      if (currentSeries && normalizeComparable(post.series) === currentSeries) score += 400;
+      if (currentCategory && normalizeComparable(meaningfulCategory(post)) === currentCategory) score += 200;
+      if (post.type === current.type) score += 100;
+      return { post, score };
+    })
+    .sort((a, b) => b.score - a.score || getSortTime(b.post) - getSortTime(a.post))
+    .slice(0, limit)
+    .map(({ post }) => post);
 }
 
 export function firstMeaningfulStanza(content = "", max = 420) {

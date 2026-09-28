@@ -5,10 +5,12 @@ import {
   isPublicPost,
   readingMinutes,
   uniqueCategories,
+  categoryCounts,
   filterPosts,
   buildArchive,
   adjacentPosts,
   seriesContext,
+  relatedPosts,
   firstMeaningfulStanza
 } from "../assets/js/post-utils.js";
 
@@ -23,6 +25,9 @@ assert.equal(meaningfulCategory(posts[0]), "");
 assert.equal(meaningfulCategory(posts[2]), "");
 assert.equal(meaningfulCategory(posts[1]), "Mektuplar");
 assert.deepEqual(uniqueCategories(posts), [{ key: "mektuplar", label: "Mektuplar" }]);
+assert.deepEqual(categoryCounts([...posts, { id: "p4", type: "daily", category: "Mektuplar" }]), [
+  { key: "mektuplar", label: "Mektuplar", count: 2 }
+]);
 
 assert.equal(filterPosts(posts, { query: "çiçek" }).map((post) => post.id).join(), "p3");
 assert.equal(filterPosts(posts, { category: "mektuplar" }).map((post) => post.id).join(), "p2");
@@ -41,6 +46,7 @@ const series = seriesContext(posts, posts[1]);
 assert.equal(series.name, "mevsimler");
 assert.equal(series.index, 2);
 assert.equal(series.total, 2);
+assert.deepEqual(relatedPosts(posts, posts[0]).map((post) => post.id), ["p2", "p3"]);
 
 const now = 1_000;
 assert.equal(isPublicPost({ status: "published" }, now), true);

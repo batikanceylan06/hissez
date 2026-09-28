@@ -1,9 +1,10 @@
-const CACHE_NAME = "hissez-public-v23-reader-tools";
+const CACHE_NAME = "hissez-public-v27-literature-blog";
 const ASSETS = [
   "/",
   "/index.html",
   "/siirler.html",
   "/gun-notlari.html",
+  "/arsiv.html",
   "/yazi.html",
   "/hakkimda.html",
   "/assets/css/style.css",

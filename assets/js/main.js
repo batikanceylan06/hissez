@@ -35,10 +35,25 @@ function initCommon() {
   });
 
   if (menuToggle && siteNav) {
-    menuToggle.addEventListener("click", () => body.classList.toggle("menu-open"));
+    siteNav.id ||= "primaryNavigation";
+    menuToggle.setAttribute("aria-controls", siteNav.id);
+    menuToggle.setAttribute("aria-expanded", "false");
+    const setMenu = (open) => {
+      body.classList.toggle("menu-open", open);
+      menuToggle.setAttribute("aria-expanded", String(open));
+      menuToggle.setAttribute("aria-label", open ? "Menüyü kapat" : "Menüyü aç");
+    };
+    menuToggle.addEventListener("click", () => setMenu(!body.classList.contains("menu-open")));
     siteNav.querySelectorAll("a").forEach((link) => {
-      link.addEventListener("click", () => body.classList.remove("menu-open"));
+      link.addEventListener("click", () => setMenu(false));
     });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && body.classList.contains("menu-open")) {
+        setMenu(false);
+        menuToggle.focus();
+      }
+    });
+    addEventListener("resize", () => { if (innerWidth > 920) setMenu(false); }, { passive: true });
   }
 
   const currentPage = location.pathname.split("/").pop() || "index.html";
@@ -60,6 +75,15 @@ function initCommon() {
   } else {
     revealItems.forEach((item) => item.classList.add("is-visible"));
   }
+}
+
+function enhanceFooter() {
+  const footer = document.querySelector(".site-footer .footer-inner");
+  if (!footer) return;
+  footer.innerHTML = `
+    <div class="footer-brand"><strong>Hissez</strong><span>Sezin’in kaleminden şiirler ve gün notları.</span></div>
+    <nav class="footer-nav" aria-label="Alt menü"><a href="index.html">Ana Sayfa</a><a href="siirler.html">Şiirler</a><a href="gun-notlari.html">Gün Notları</a><a href="arsiv.html">Arşiv</a><a href="hakkimda.html">Hakkımda</a></nav>
+    <div class="footer-meta"><div class="footer-social"><a class="social-link" href="https://www.instagram.com/hissezz" target="_blank" rel="noopener noreferrer" aria-label="Hissez Instagram hesabı">Instagram</a><a class="social-link" href="https://pin.it/55jp4Ze6V" target="_blank" rel="noopener noreferrer" aria-label="Hissez Pinterest hesabı">Pinterest</a></div><span>© <span data-year>${new Date().getFullYear()}</span> Hissez</span></div>`;
 }
 
 function removeLegacyAudio() {
@@ -171,6 +195,7 @@ function initAudioPlayer() {
 }
 
 initTheme();
+enhanceFooter();
 initCommon();
 initAudioPlayer();
 
