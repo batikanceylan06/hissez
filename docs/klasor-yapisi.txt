@@ -14,6 +14,7 @@ Kök klasör:
 - sitemap.xml
 - vercel.json
 - firebase.json
+- package.json
 - scripts/
 - assets/
 - config/
@@ -31,7 +32,17 @@ config/
 
 docs/
 - README.md
+- scheduled-publishing.md
 
 scripts/
 - set-admin-claim.mjs
 - test-firebase-rules.mjs
+- test-post-utils.mjs
+- test-static.mjs
+
+assets/js/
+- main.js
+- posts.js
+- post-utils.js
+- admin.js
+- firebase-config.js

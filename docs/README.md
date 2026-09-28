@@ -13,6 +13,7 @@ Sezin’in şiirlerini ve günlük tarzı gün notlarını yayınlayabileceği F
 - `assets/js/firebase-config.js`: Firebase bağlantı ayarları
 - `assets/js/admin.js`: Admin giriş, yazı ekleme, düzenleme, yayına alma
 - `assets/js/posts.js`: Public site yazı listeleme ve detay gösterme
+- `assets/js/post-utils.js`: Arama, arşiv, kategori, sıralama ve okuma yardımcıları
 
 ## Firebase Kurulum
 
@@ -27,9 +28,10 @@ Sezin’in şiirlerini ve günlük tarzı gün notlarını yayınlayabileceği F
 ## Realtime Database Rules
 
 Aktif kurallar `config/firebase-rules.json` dosyasındadır. Public erişim yalnızca istemcinin
-`orderByChild("status").equalTo("published")` sorgusuna izin verir; filtresiz `/posts`
-okuması ve tekil taslak okuması reddedilir. Yönetici tam okuma/yazma yetkisi
-`auth.token.admin === true` Custom Claim ile verilir.
+`orderByChild("status").equalTo("published")` sorgusuna ve sunucu saatinin içinde bulunduğu
+dakikayla birebir sınırlandırılmış `publishAt` sorgusuna izin verir. Filtresiz `/posts`,
+taslak ve gelecekteki zamanlanmış içerik okumaları reddedilir. Yönetici tam okuma/yazma
+yetkisi `auth.token.admin === true` Custom Claim ile verilir.
 
 Kurallardaki iki e-posta kontrolü yalnızca mevcut yöneticileri ilk Custom Claim kurulana
 kadar kilitlememek için geçici uyumluluk katmanıdır. Tüm yönetici hesaplarına claim
@@ -55,12 +57,16 @@ Bu adres public menüde, footer’da veya ana sayfada görünmez. Ayrıca:
 
 ## Yayın Mantığı
 
-Admin panelde yazılar iki durumda tutulur:
+Admin panelde yazılar üç durumda tutulur:
 
 - `draft`: Taslak
 - `published`: Yayında
+- `scheduled`: `publishAt` zamanına kadar gizli, zamanı geldiğinde public
 
-Public sitede sadece `published` yazılar görünür.
+Public sitede `published` yazılar ile `scheduled && publishAt <= sunucu zamanı` koşulunu
+sağlayan yazılar görünür. Statik frontend fallback'i zamanlanmış kayıtları dakikalık güvenli
+sorguyla kontrol ettiği için görünürlükte en fazla yaklaşık bir dakikalık gecikme olabilir.
+Gelecekteki zamanlanmış kayıtlar istemciye indirilmez.
 
 ## Firebase Veri Yapısı
 
@@ -73,7 +79,10 @@ Public sitede sadece `published` yazılar görünür.
       "content": "Yazının tam içeriği...",
       "type": "poem",
       "category": "Şiir",
-      "status": "published",
+      "status": "scheduled",
+      "publishAt": 1790442000000,
+      "series": "Gece Notları",
+      "authorNote": "Bu şiiri bir eylül akşamında yazdım.",
       "featured": true,
       "excerpt": "Kısa açıklama",
       "date": "2026-04-30",
@@ -91,6 +100,13 @@ Public sitede sadece `published` yazılar görünür.
 3. Yazı başlığı, türü, tarihi ve içeriği gir.
 4. Taslak olarak kaydet veya direkt yayına al.
 5. Yayındaki yazılar sitede otomatik görünür.
+
+Zamanlanmış yayın için durum olarak `Zamanlanmış` seçilir ve Türkiye tarih/saat alanı
+doldurulur. `publishAt`, UTC epoch milisaniyesi olarak saklanır. Yeni alanların üçü de
+opsiyoneldir; eski kayıtlar migration gerektirmeden çalışır.
+
+Gerçek bir sunucu işlemiyle `scheduled` kaydını tam vaktinde `published` yapmak istersen
+opsiyonel Cloud Functions yaklaşımı için `docs/scheduled-publishing.md` dosyasına bak.
 
 
 ## Admin Custom Claim kurulumu
@@ -130,6 +146,20 @@ Kuralları production verisine dokunmadan emülatörde test etmek için:
 ```powershell
 npx -y firebase-tools@latest emulators:exec --only database,auth --project demo-hissez "node scripts/test-firebase-rules.mjs"
 ```
+
+Hazır komutlar:
+
+```powershell
+npm test
+npm run test:utils
+npm run test:rules
+```
+
+## Tarayıcıda saklanan tercihler
+
+- `hissezFavorites`: Favori yazı kimlikleri
+- `hissezRecentPosts`: Son okunan en fazla 5 yazı kimliği
+- Mevcut `hissez-theme` ve ambiyans anahtarları değiştirilmeden korunur.
 
 ## SEO ve sitemap notu
 

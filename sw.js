@@ -1,4 +1,4 @@
-const CACHE_NAME = "hissez-public-v22-security";
+const CACHE_NAME = "hissez-public-v23-reader-tools";
 const ASSETS = [
   "/",
   "/index.html",
@@ -9,6 +9,7 @@ const ASSETS = [
   "/assets/css/style.css",
   "/assets/js/main.js",
   "/assets/js/posts.js",
+  "/assets/js/post-utils.js",
   "/assets/js/firebase-config.js",
   "/assets/img/hissez-logo.png",
   "/assets/img/hissez-bg.jpeg",

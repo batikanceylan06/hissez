@@ -65,6 +65,8 @@ const basePost = {
   category: "Şiir",
   featured: false,
   excerpt: "Test",
+  series: "Kural Dizisi",
+  authorNote: "Yazar notu",
   date: "2026-09-25",
   createdAt: Date.now(),
   updatedAt: Date.now()
@@ -86,9 +88,27 @@ assert.equal((await request("/posts/draft.json", {
   body: { ...basePost, slug: "taslak", status: "draft" }
 })).status, 200);
 
+const testNow = Date.now();
+const duePublishAt = testNow - 60_000;
+const futurePublishAt = testNow + 60 * 60 * 1000;
+
+assert.equal((await request("/posts/scheduled-due.json", {
+  method: "PUT",
+  token: adminToken,
+  body: { ...basePost, slug: "zamanli-vadesi-geldi", status: "scheduled", publishAt: duePublishAt }
+})).status, 200);
+
+assert.equal((await request("/posts/scheduled-future.json", {
+  method: "PUT",
+  token: adminToken,
+  body: { ...basePost, slug: "zamanli-gelecek", status: "scheduled", publishAt: futurePublishAt }
+})).status, 200);
+
 assert.equal((await request("/posts.json")).status, 401);
 assert.equal((await request("/posts/draft.json")).status, 401);
 assert.equal((await request("/posts/published.json")).status, 200);
+assert.equal((await request("/posts/scheduled-due.json")).status, 200);
+assert.equal((await request("/posts/scheduled-future.json")).status, 401);
 assert.equal((await request("/posts.json", { token: regularToken })).status, 401);
 assert.equal((await request("/posts.json", { token: adminToken })).status, 200);
 assert.equal((await request("/posts.json", { token: legacyAdminToken })).status, 200);
@@ -96,6 +116,17 @@ assert.equal((await request("/posts.json", { token: legacyAdminToken })).status,
 const publicResult = await request('/posts.json?orderBy=%22status%22&equalTo=%22published%22');
 assert.equal(publicResult.status, 200);
 assert.deepEqual(Object.keys(publicResult.data || {}), ["published"]);
+
+const currentMinute = Date.now() - (Date.now() % 60_000);
+const scheduledResult = await request(`/posts.json?orderBy=%22publishAt%22&startAt=1&endAt=${currentMinute}`);
+assert.equal(scheduledResult.status, 200);
+assert.deepEqual(Object.keys(scheduledResult.data || {}), ["scheduled-due"]);
+
+const missingLowerBound = await request(`/posts.json?orderBy=%22publishAt%22&endAt=${currentMinute}`);
+assert.equal(missingLowerBound.status, 401);
+
+const futureWindow = await request(`/posts.json?orderBy=%22publishAt%22&startAt=1&endAt=${Date.now() + 60_000}`);
+assert.equal(futureWindow.status, 401);
 
 const publicWrite = await request("/posts/public-write.json", {
   method: "PUT",
@@ -107,6 +138,11 @@ assert.equal((await request("/posts/draft.json", {
   method: "PATCH",
   token: adminToken,
   body: { status: "published", updatedAt: Date.now() }
+})).status, 200);
+assert.equal((await request("/posts/scheduled-due.json", {
+  method: "PATCH",
+  token: adminToken,
+  body: { status: "published", publishAt: null, updatedAt: Date.now() }
 })).status, 200);
 assert.equal((await request("/posts/draft.json", {
   method: "PATCH",
@@ -126,6 +162,27 @@ const invalidStatus = await request("/posts/invalid-status.json", {
 });
 assert.equal(invalidStatus.status, 401);
 
+const scheduledWithoutDate = await request("/posts/invalid-scheduled.json", {
+  method: "PUT",
+  token: adminToken,
+  body: { ...basePost, slug: "zamanlama-yok", status: "scheduled" }
+});
+assert.equal(scheduledWithoutDate.status, 401);
+
+const publishedWithSchedule = await request("/posts/invalid-published.json", {
+  method: "PUT",
+  token: adminToken,
+  body: { ...basePost, slug: "yayinda-zamanlama", status: "published", publishAt: futurePublishAt }
+});
+assert.equal(publishedWithSchedule.status, 401);
+
+const longSeries = await request("/posts/invalid-series.json", {
+  method: "PUT",
+  token: adminToken,
+  body: { ...basePost, slug: "uzun-dizi", status: "draft", series: "x".repeat(81) }
+});
+assert.equal(longSeries.status, 401);
+
 const unexpectedField = await request("/posts/unexpected-field.json", {
   method: "PUT",
   token: adminToken,
@@ -133,4 +190,4 @@ const unexpectedField = await request("/posts/unexpected-field.json", {
 });
 assert.equal(unexpectedField.status, 401);
 
-console.log("Firebase Rules testleri geçti: public filtre, taslak gizliliği, admin claim, geçiş hesabı ve validation.");
+console.log("Firebase Rules testleri geçti: public filtre, güvenli zamanlama, taslak gizliliği, admin claim, geçiş hesabı ve validation.");

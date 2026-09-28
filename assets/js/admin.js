@@ -23,13 +23,23 @@ const postDate = document.getElementById("postDate");
 const postType = document.getElementById("postType");
 const postCategory = document.getElementById("postCategory");
 const postStatus = document.getElementById("postStatus");
+const postPublishAt = document.getElementById("postPublishAt");
+const scheduleField = document.getElementById("scheduleField");
+const postSeries = document.getElementById("postSeries");
 const postFeatured = document.getElementById("postFeatured");
 const postExcerpt = document.getElementById("postExcerpt");
 const postContent = document.getElementById("postContent");
+const postAuthorNote = document.getElementById("postAuthorNote");
 const editorTitle = document.getElementById("editorTitle");
 const adminPostsList = document.getElementById("adminPostsList");
 const statusFilter = document.getElementById("statusFilter");
 const typeFilter = document.getElementById("typeFilter");
+const statTotal = document.getElementById("statTotal");
+const statPublished = document.getElementById("statPublished");
+const statDraft = document.getElementById("statDraft");
+const statScheduled = document.getElementById("statScheduled");
+const statPoem = document.getElementById("statPoem");
+const statDaily = document.getElementById("statDaily");
 
 let allPosts = [];
 let postsRef = null;
@@ -194,7 +204,48 @@ function typeLabel(type) {
 }
 
 function statusLabel(status) {
-  return status === "published" ? "Yayında" : "Taslak";
+  if (status === "published") return "Yayında";
+  if (status === "scheduled") return "Zamanlanmış";
+  return "Taslak";
+}
+
+function parseTurkeyDateTime(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(String(value || ""));
+  if (!match) return 0;
+  const [, year, month, day, hour, minute] = match.map(Number);
+  return Date.UTC(year, month - 1, day, hour - 3, minute);
+}
+
+function formatTurkeyDateTimeInput(timestamp) {
+  if (!Number(timestamp)) return "";
+  const date = new Date(Number(timestamp) + (3 * 60 * 60 * 1000));
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 16);
+}
+
+function formatTurkeyDateTime(timestamp) {
+  if (!Number(timestamp)) return "Tarih seçilmedi";
+  const date = new Date(Number(timestamp));
+  if (Number.isNaN(date.getTime())) return "Geçersiz tarih";
+  try {
+    return new Intl.DateTimeFormat("tr-TR", {
+      timeZone: "Europe/Istanbul",
+      dateStyle: "long",
+      timeStyle: "short"
+    }).format(date);
+  } catch {
+    return "Geçersiz tarih";
+  }
+}
+
+function syncScheduleField() {
+  const scheduled = postStatus.value === "scheduled";
+  scheduleField.hidden = !scheduled;
+  postPublishAt.required = scheduled;
+  if (scheduled && !postPublishAt.value) {
+    const nextHour = Date.now() + (60 * 60 * 1000);
+    postPublishAt.value = formatTurkeyDateTimeInput(nextHour);
+  }
 }
 
 function resetForm() {
@@ -204,10 +255,14 @@ function resetForm() {
   postType.value = "poem";
   postCategory.value = "";
   postStatus.value = "draft";
+  postPublishAt.value = "";
+  postSeries.value = "";
   postFeatured.checked = false;
   postExcerpt.value = "";
   postContent.value = "";
+  postAuthorNote.value = "";
   editorTitle.textContent = "Yeni yazı";
+  syncScheduleField();
 }
 
 
@@ -229,6 +284,7 @@ function getFormPayload(statusOverride = null) {
   const content = postContent.value.trim();
   const type = postType.value;
   const status = statusOverride || postStatus.value;
+  const publishAt = status === "scheduled" ? parseTurkeyDateTime(postPublishAt.value) : null;
 
   if (!title) throw new Error("Başlık boş olamaz.");
   if (!content) throw new Error("İçerik boş olamaz.");
@@ -236,8 +292,11 @@ function getFormPayload(statusOverride = null) {
   if (content.length > 100000) throw new Error("İçerik en fazla 100.000 karakter olabilir.");
   if (postCategory.value.trim().length > 50) throw new Error("Kategori en fazla 50 karakter olabilir.");
   if (postExcerpt.value.trim().length > 220) throw new Error("Kısa açıklama en fazla 220 karakter olabilir.");
+  if (postSeries.value.trim().length > 80) throw new Error("Yazı dizisi en fazla 80 karakter olabilir.");
+  if (postAuthorNote.value.trim().length > 1000) throw new Error("Yazarın notu en fazla 1.000 karakter olabilir.");
   if (!["poem", "daily"].includes(type)) throw new Error("Yazı türü geçersiz.");
-  if (!["draft", "published"].includes(status)) throw new Error("Yayın durumu geçersiz.");
+  if (!["draft", "published", "scheduled"].includes(status)) throw new Error("Yayın durumu geçersiz.");
+  if (status === "scheduled" && !publishAt) throw new Error("Zamanlanmış yazı için geçerli bir Türkiye tarih ve saati seçmelisin.");
 
   const current = editingId.value ? allPosts.find((post) => post.id === editingId.value) : null;
 
@@ -248,8 +307,11 @@ function getFormPayload(statusOverride = null) {
     type,
     category: postCategory.value.trim() || typeLabel(type),
     status,
+    publishAt,
+    series: postSeries.value.trim(),
     featured: postFeatured.checked,
     excerpt: postExcerpt.value.trim(),
+    authorNote: postAuthorNote.value.trim(),
     date: postDate.value || today(),
     updatedAt: Date.now()
   };
@@ -279,14 +341,19 @@ async function savePost(statusOverride = null) {
         ...payload,
         createdAt: current?.createdAt || Date.now()
       });
-      showNotice(adminNotice, "success", "Yazı başarıyla güncellendi.");
+      showNotice(adminNotice, "success", payload.status === "scheduled" ? `Yazı ${formatTurkeyDateTime(payload.publishAt)} için zamanlandı.` : "Yazı başarıyla güncellendi.");
     } else {
       const newRef = push(ref(db, "posts"));
       await set(newRef, {
         ...payload,
         createdAt: Date.now()
       });
-      showNotice(adminNotice, "success", payload.status === "published" ? "Yazı yayına alındı." : "Yazı taslak olarak kaydedildi.");
+      const message = payload.status === "published"
+        ? "Yazı yayına alındı."
+        : payload.status === "scheduled"
+          ? `Yazı ${formatTurkeyDateTime(payload.publishAt)} için zamanlandı.`
+          : "Yazı taslak olarak kaydedildi.";
+      showNotice(adminNotice, "success", message);
     }
 
     resetForm();
@@ -304,10 +371,14 @@ function fillForm(post) {
   postType.value = post.type || "poem";
   postCategory.value = post.category || "";
   postStatus.value = post.status || "draft";
+  postPublishAt.value = formatTurkeyDateTimeInput(post.publishAt);
+  postSeries.value = post.series || "";
   postFeatured.checked = Boolean(post.featured);
   postExcerpt.value = post.excerpt || "";
   postContent.value = post.content || "";
+  postAuthorNote.value = post.authorNote || "";
   editorTitle.textContent = "Yazıyı düzenle";
+  syncScheduleField();
   document.getElementById("editor").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -320,6 +391,7 @@ async function togglePublish(id) {
   try {
     await update(ref(db, `posts/${id}`), {
       status: nextStatus,
+      publishAt: null,
       updatedAt: Date.now()
     });
     showNotice(adminNotice, "success", nextStatus === "published" ? "Yazı yayına alındı." : "Yazı yayından kaldırıldı.");
@@ -359,7 +431,8 @@ function renderPosts() {
 
   adminPostsList.innerHTML = filtered.map((post) => {
     const publishText = post.status === "published" ? "Yayından Kaldır" : "Yayına Al";
-    const publicLink = post.status === "published"
+    const isPublic = post.status === "published" || (post.status === "scheduled" && Number(post.publishAt) <= Date.now());
+    const publicLink = isPublic
       ? `<a class="small-btn" href="yazi.html?id=${encodeURIComponent(post.id)}" target="_blank" rel="noopener noreferrer">Görüntüle</a>`
       : "";
     const safeId = escapeHTML(post.id);
@@ -372,6 +445,8 @@ function renderPosts() {
             <span>${typeLabel(post.type)}</span>
             <span>${statusLabel(post.status)}</span>
             <span>${formatDate(post.date)}</span>
+            ${post.status === "scheduled" ? `<span>Yayın: ${escapeHTML(formatTurkeyDateTime(post.publishAt))}</span>` : ""}
+            ${post.series ? `<span>Dizi: ${escapeHTML(post.series)}</span>` : ""}
             ${post.featured ? "<span>Öne Çıkan</span>" : ""}
           </div>
         </div>
@@ -384,6 +459,15 @@ function renderPosts() {
       </article>
     `;
   }).join("");
+}
+
+function renderStats() {
+  statTotal.textContent = String(allPosts.length);
+  statPublished.textContent = String(allPosts.filter((post) => post.status === "published").length);
+  statDraft.textContent = String(allPosts.filter((post) => post.status === "draft").length);
+  statScheduled.textContent = String(allPosts.filter((post) => post.status === "scheduled").length);
+  statPoem.textContent = String(allPosts.filter((post) => post.type === "poem").length);
+  statDaily.textContent = String(allPosts.filter((post) => post.type === "daily").length);
 }
 
 function stopWatchingPosts() {
@@ -406,6 +490,7 @@ function watchPosts() {
       .map(([id, post]) => ({ id, ...post }))
       .sort((a, b) => getSortTime(b) - getSortTime(a));
 
+    renderStats();
     renderPosts();
   }, (error) => {
     showNotice(adminNotice, "error", firebaseMessage(error, "Yazılar yüklenemedi. Firebase kurallarını ve bağlantı ayarlarını kontrol et."));
@@ -495,11 +580,13 @@ postForm.addEventListener("submit", (event) => {
 
 document.getElementById("saveDraftButton").addEventListener("click", () => {
   postStatus.value = "draft";
+  syncScheduleField();
   savePost("draft");
 });
 
 document.getElementById("publishButton").addEventListener("click", () => {
   postStatus.value = "published";
+  syncScheduleField();
   savePost("published");
 });
 
@@ -526,6 +613,7 @@ adminPostsList.addEventListener("click", (event) => {
 
 statusFilter.addEventListener("change", renderPosts);
 typeFilter.addEventListener("change", renderPosts);
+postStatus.addEventListener("change", syncScheduleField);
 
 onAuthStateChanged(auth, async (user) => {
   clearNotice(loginNotice);

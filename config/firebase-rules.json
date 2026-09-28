@@ -3,12 +3,12 @@
     ".read": false,
     ".write": false,
     "posts": {
-      ".read": "(auth != null && (auth.token.admin === true || auth.token.email === 'batikanceylan06@gmail.com' || auth.token.email === 'kocasezinkoca@icloud.com')) || (query.orderByChild === 'status' && query.equalTo === 'published')",
+      ".read": "(auth != null && (auth.token.admin === true || auth.token.email === 'batikanceylan06@gmail.com' || auth.token.email === 'kocasezinkoca@icloud.com')) || (query.orderByChild === 'status' && query.equalTo === 'published') || (query.orderByChild === 'publishAt' && query.startAt === 1 && query.endAt === (now - (now % 60000)))",
       ".write": "auth != null && (auth.token.admin === true || auth.token.email === 'batikanceylan06@gmail.com' || auth.token.email === 'kocasezinkoca@icloud.com')",
-      ".indexOn": ["status"],
+      ".indexOn": ["status", "publishAt"],
       "$postId": {
-        ".read": "data.child('status').val() === 'published' || (auth != null && (auth.token.admin === true || auth.token.email === 'batikanceylan06@gmail.com' || auth.token.email === 'kocasezinkoca@icloud.com'))",
-        ".validate": "newData.hasChildren(['title', 'slug', 'content', 'type', 'status', 'date', 'createdAt', 'updatedAt'])",
+        ".read": "data.child('status').val() === 'published' || (data.child('status').val() === 'scheduled' && data.child('publishAt').isNumber() && data.child('publishAt').val() <= now) || (auth != null && (auth.token.admin === true || auth.token.email === 'batikanceylan06@gmail.com' || auth.token.email === 'kocasezinkoca@icloud.com'))",
+        ".validate": "newData.hasChildren(['title', 'slug', 'content', 'type', 'status', 'date', 'createdAt', 'updatedAt']) && ((newData.child('status').val() === 'scheduled' && newData.child('publishAt').isNumber() && newData.child('publishAt').val() > 0) || ((newData.child('status').val() === 'published' || newData.child('status').val() === 'draft') && !newData.hasChild('publishAt')))",
         "title": {
           ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
         },
@@ -25,7 +25,16 @@
           ".validate": "newData.isString() && newData.val().length <= 50"
         },
         "status": {
-          ".validate": "newData.isString() && (newData.val() === 'published' || newData.val() === 'draft')"
+          ".validate": "newData.isString() && (newData.val() === 'published' || newData.val() === 'draft' || newData.val() === 'scheduled')"
+        },
+        "publishAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "series": {
+          ".validate": "newData.isString() && newData.val().length <= 80"
+        },
+        "authorNote": {
+          ".validate": "newData.isString() && newData.val().length <= 1000"
         },
         "featured": {
           ".validate": "newData.isBoolean()"

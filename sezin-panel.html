@@ -77,6 +77,15 @@
 
         <div id="adminNotice" class="notice" hidden></div>
 
+        <section class="admin-stats" aria-label="İçerik istatistikleri">
+          <article><span>Toplam</span><strong id="statTotal">0</strong></article>
+          <article><span>Yayında</span><strong id="statPublished">0</strong></article>
+          <article><span>Taslak</span><strong id="statDraft">0</strong></article>
+          <article><span>Zamanlı</span><strong id="statScheduled">0</strong></article>
+          <article><span>Şiir</span><strong id="statPoem">0</strong></article>
+          <article><span>Gün Notu</span><strong id="statDaily">0</strong></article>
+        </section>
+
         <section class="editor-card" id="editor">
           <div class="card-head">
             <div>
@@ -118,7 +127,19 @@
                 <select id="postStatus" required>
                   <option value="draft">Taslak</option>
                   <option value="published">Yayında</option>
+                  <option value="scheduled">Zamanlanmış</option>
                 </select>
+              </label>
+
+              <label id="scheduleField" hidden>
+                <span>Yayınlanacağı tarih ve saat (Türkiye)</span>
+                <input type="datetime-local" id="postPublishAt">
+                <small>Yazı bu saate ulaşıldığında sitede görünür.</small>
+              </label>
+
+              <label>
+                <span>Yazı dizisi</span>
+                <input type="text" id="postSeries" maxlength="80" placeholder="Örn: Kış Mektupları">
               </label>
 
               <label class="check-row">
@@ -135,6 +156,11 @@
             <label>
               <span>İçerik</span>
               <textarea id="postContent" rows="14" maxlength="100000" required placeholder="Sezin’in yazısı burada..."></textarea>
+            </label>
+
+            <label>
+              <span>Yazarın notu</span>
+              <textarea id="postAuthorNote" rows="4" maxlength="1000" placeholder="Okura eklemek istediğin isteğe bağlı not..."></textarea>
             </label>
 
             <div class="editor-actions">
@@ -156,6 +182,7 @@
                 <option value="all">Tüm durumlar</option>
                 <option value="published">Yayında</option>
                 <option value="draft">Taslak</option>
+                <option value="scheduled">Zamanlanmış</option>
               </select>
               <select id="typeFilter">
                 <option value="all">Tüm türler</option>
