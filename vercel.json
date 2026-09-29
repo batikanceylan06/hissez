@@ -1,4 +1,14 @@
 {
+  "rewrites": [
+    {
+      "source": "/siir/:slug",
+      "destination": "/yazi.html?slug=:slug"
+    },
+    {
+      "source": "/gun-notu/:slug",
+      "destination": "/yazi.html?slug=:slug"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

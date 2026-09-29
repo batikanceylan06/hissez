@@ -1,14 +1,13 @@
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 import {
-  getDatabase,
-  ref,
-  get,
-  onValue,
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
   query,
-  orderByChild,
-  equalTo,
-  startAt,
-  endAt
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+  where,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { app } from "./firebase-config.js";
 import {
   typeLabel,
@@ -28,7 +27,10 @@ import {
   firstMeaningfulStanza
 } from "./post-utils.js";
 
-const db = getDatabase(app);
+const clockDb = getDatabase(app);
+const firestore = getFirestore(app);
+const postsCollection = collection(firestore, "posts");
+const postScheduleCollection = collection(firestore, "postSchedule");
 const page = document.body.dataset.page;
 const pageType = document.body.dataset.type;
 const SITE_URL = "https://hissez.com";
@@ -42,28 +44,6 @@ const CANVAS_FORMATS = Object.freeze({
   story: { width: 1080, height: 1920, maxLines: 18 }
 });
 const CANVAS_WATERMARK = Object.freeze({ opacity: .075, fontSize: 150 });
-const POEM_SHARE_TARGETS = Object.freeze({
-  generic: {
-    format: "post",
-    suffix: "share",
-    fallbackMessage: "Görsel indirildi."
-  },
-  whatsapp: {
-    format: "post",
-    suffix: "whatsapp",
-    fallbackMessage: "Görsel hazırlandı. WhatsApp'ta paylaşabilirsin."
-  },
-  story: {
-    format: "story",
-    suffix: "story",
-    fallbackMessage: "Hikâye görseli hazırlandı. Instagram'da paylaşabilirsin."
-  },
-  instagram: {
-    format: "post",
-    suffix: "instagram",
-    fallbackMessage: "Gönderi görseli hazırlandı. Instagram'da paylaşabilirsin."
-  }
-});
 
 let publishedValue = {};
 let scheduledValue = {};
@@ -77,6 +57,9 @@ let canvasPreviewPage = 0;
 let scheduledWarningShown = false;
 let globalSearchReady = false;
 let readingProgressCleanup = null;
+let scheduledIndex = [];
+let scheduledRefreshVersion = 0;
+let clockReady = false;
 
 const listFilters = (() => {
   const params = new URLSearchParams(location.search);
@@ -116,6 +99,56 @@ function poemCanvasExcerpt(post, max = 5000) {
 function truncate(value = "", max = 145) {
   const text = stripText(value);
   return text.length > max ? `${text.slice(0, max).trim()}…` : text;
+}
+
+function urlSlug(value = "") {
+  return String(value)
+    .replace(/<[^>]*>/g, " ")
+    .toLocaleLowerCase("tr-TR")
+    .replaceAll("ğ", "g")
+    .replaceAll("ü", "u")
+    .replaceAll("ş", "s")
+    .replaceAll("ı", "i")
+    .replaceAll("ö", "o")
+    .replaceAll("ç", "c")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 120);
+}
+
+function cleanPostSlug(post, posts = currentPosts) {
+  const base = urlSlug(post?.title || post?.slug || "yazi") || "yazi";
+  const sameTitle = posts.filter((item) => urlSlug(item.title || item.slug || "yazi") === base);
+  if (sameTitle.length <= 1) return base;
+
+  const firstLine = String(post?.content || "").split(/\r?\n/).find((line) => stripText(line)) || "";
+  const lead = urlSlug(firstLine).split("-").filter(Boolean).slice(0, 4).join("-");
+  const descriptive = lead && lead !== base ? `${base}-${lead}`.slice(0, 120).replace(/-$/g, "") : base;
+  const sameDescription = sameTitle.filter((item) => {
+    const itemLine = String(item.content || "").split(/\r?\n/).find((line) => stripText(line)) || "";
+    const itemLead = urlSlug(itemLine).split("-").filter(Boolean).slice(0, 4).join("-");
+    return (itemLead && itemLead !== base ? `${base}-${itemLead}`.slice(0, 120).replace(/-$/g, "") : base) === descriptive;
+  });
+  if (sameDescription.length <= 1) return descriptive;
+  const suffix = urlSlug(post?.id).slice(-6) || "hissez";
+  return `${descriptive}-${suffix}`;
+}
+
+function cleanPostPath(post) {
+  const section = post?.type === "poem" ? "siir" : "gun-notu";
+  return `/${section}/${encodeURIComponent(cleanPostSlug(post))}`;
+}
+
+function cleanPostUrl(post) {
+  return `${SITE_URL}${cleanPostPath(post)}`;
+}
+
+function postHref(post) {
+  const localPreview = /^(?:localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  return localPreview ? `yazi.html?id=${encodeURIComponent(post.id)}` : cleanPostPath(post);
 }
 
 function safeISOString(value) {
@@ -211,7 +244,7 @@ function postExcerpt(post, max = 145) {
 }
 
 function renderCard(post) {
-  const href = `yazi.html?id=${encodeURIComponent(post.id)}`;
+  const href = postHref(post);
   const minutes = readingMinutes(post.content);
   return `
     <article class="post-card blog-card">
@@ -227,7 +260,7 @@ function renderCard(post) {
 }
 
 function renderPoemBook(post, pageNumber = 1) {
-  const href = `yazi.html?id=${encodeURIComponent(post.id)}`;
+  const href = postHref(post);
   const category = meaningfulCategory(post);
   return `
     <article class="poem-book-entry">
@@ -246,7 +279,7 @@ function renderPoemBook(post, pageNumber = 1) {
 }
 
 function renderDailyTimeline(post, index = 0) {
-  const href = `yazi.html?id=${encodeURIComponent(post.id)}`;
+  const href = postHref(post);
   const date = dateParts(post.date);
   return `
     <article class="daily-timeline-entry ${index % 2 === 0 ? "left" : "right"}">
@@ -290,7 +323,7 @@ function renderHome(posts) {
           <p>${postExcerpt(featuredPost, 220)}</p>
           <p class="featured-reading-meta">${formatDate(featuredPost.date)} · ${readingMinutes(featuredPost.content)} dk okuma</p>
         </div>
-        <a class="btn btn-primary" href="yazi.html?id=${encodeURIComponent(featuredPost.id)}">Okumaya Devam Et</a>
+        <a class="btn btn-primary" href="${postHref(featuredPost)}">Okumaya Devam Et</a>
       </article>`;
   } else if (featured) {
     featured.closest("section")?.setAttribute("hidden", "");
@@ -395,7 +428,7 @@ function initListTools(typePosts) {
         const available = filterPosts(scope, listFilters, readIdList(FAVORITES_KEY));
         if (!available.length) return showToast("Bu filtrelerde okunacak yazı bulunamadı.");
         const selected = available[Math.floor(Math.random() * available.length)];
-        location.href = `yazi.html?id=${encodeURIComponent(selected.id)}`;
+        location.href = postHref(selected);
       }
     });
     listToolsReady = true;
@@ -497,7 +530,7 @@ function renderGlobalSearch(queryValue = "") {
   const matches = globalSearchMatches(queryValue);
   results.innerHTML = queryValue.trim()
     ? matches.length ? matches.map((post) => `
-      <a class="global-search-result" href="yazi.html?id=${encodeURIComponent(post.id)}">
+      <a class="global-search-result" href="${postHref(post)}">
         <span><small>${typeLabel(post.type)} · ${formatDate(post.date)}</small><strong>${escapeHTML(post.title || "Başlıksız Yazı")}</strong></span>
         <span aria-hidden="true">→</span>
       </a>`).join("") : '<p class="global-search-empty">Eşleşen yazı bulunamadı.</p>'
@@ -552,7 +585,7 @@ function initGlobalSearch() {
 function updateDetailSEO(post) {
   const title = `${post.title || "Yazı"} | Hissez`;
   const description = truncate(post.excerpt || post.content || "Hissez yazı detay sayfası.", 155);
-  const canonical = `${SITE_URL}/yazi.html?id=${encodeURIComponent(post.id)}`;
+  const canonical = cleanPostUrl(post);
   const datePublished = /^\d{4}-\d{2}-\d{2}$/.test(post.date || "") ? post.date : undefined;
   const dateModified = safeISOString(post.updatedAt) || datePublished;
   document.title = title;
@@ -614,7 +647,7 @@ function updateDetailSEO(post) {
 
 function postLink(post, label) {
   if (!post) return '<span class="article-nav-empty" aria-hidden="true"></span>';
-  return `<a href="yazi.html?id=${encodeURIComponent(post.id)}"><small>${label}</small><strong>${escapeHTML(post.title || "Başlıksız Yazı")}</strong></a>`;
+  return `<a href="${postHref(post)}"><small>${label}</small><strong>${escapeHTML(post.title || "Başlıksız Yazı")}</strong></a>`;
 }
 
 function renderSeries(posts, post) {
@@ -671,12 +704,24 @@ function saveRecent(id) {
   writeIdList(RECENTS_KEY, [id, ...recents], 5);
 }
 
+function requestedPost(posts) {
+  const params = new URLSearchParams(location.search);
+  const id = params.get("id");
+  if (id) return posts.find((item) => item.id === id);
+
+  let slug = params.get("slug") || "";
+  if (!slug) {
+    const pathMatch = location.pathname.match(/^\/(?:siir|gun-notu)\/([^/]+)\/?$/);
+    if (pathMatch) slug = pathMatch[1];
+  }
+  try { slug = decodeURIComponent(slug); } catch { /* Kodlanmış değer olduğu gibi sınanır. */ }
+  return posts.find((item) => cleanPostSlug(item, posts) === slug || item.slug === slug);
+}
+
 function renderDetail(posts) {
   const detail = document.getElementById("postDetail");
   detail?.classList.remove("is-poem-detail", "is-daily-detail");
-  const id = new URLSearchParams(location.search).get("id");
-  if (!id) return renderEmpty(detail, "Yazı bulunamadı.");
-  const post = posts.find((item) => item.id === id);
+  const post = requestedPost(posts);
   if (!post) return renderEmpty(detail, "Bu yazı yayında değil ya da kaldırılmış.");
 
   detail.classList.toggle("is-poem-detail", post.type === "poem");
@@ -690,7 +735,7 @@ function renderDetail(posts) {
   const favorite = readIdList(FAVORITES_KEY).includes(post.id);
   const minutes = readingMinutes(post.content);
   const showReadingTime = post.type === "daily" || minutes > 1;
-  const shareUrl = `${SITE_URL}/yazi.html?id=${encodeURIComponent(post.id)}`;
+  const shareUrl = cleanPostUrl(post);
   const shareText = `${post.title || "Hissez yazısı"} — Hissez`;
 
   detail.innerHTML = `
@@ -700,22 +745,18 @@ function renderDetail(posts) {
     ${post.excerpt ? `<p class="hero-text">${escapeHTML(post.excerpt)}</p>` : ""}
     <div class="article-utility-actions">
       <button class="btn btn-ghost compact-btn" type="button" data-detail-action="favorite" aria-pressed="${favorite}">${favorite ? "♥ Favorilerde" : "♡ Favorilere Ekle"}</button>
-      <div class="share-control">
-        <button class="btn btn-ghost compact-btn" type="button" data-detail-action="share" aria-controls="shareFallback" aria-expanded="false">Paylaş</button>
-        <div class="share-fallback${post.type === "poem" ? " poem-share-menu" : ""}" id="shareFallback" hidden>
-          ${post.type === "poem" ? `
-            <button type="button" data-detail-action="poem-share" data-share-target="generic">Görsel Olarak Paylaş</button>
-            <button type="button" data-detail-action="poem-share" data-share-target="whatsapp">WhatsApp</button>
-            <button type="button" data-detail-action="poem-share" data-share-target="story">Instagram Hikâye</button>
-            <button type="button" data-detail-action="poem-share" data-share-target="instagram">Instagram Gönderi</button>
-          ` : `
+      ${post.type === "poem" ? `
+        <button class="btn btn-primary compact-btn" type="button" data-detail-action="share">Paylaş</button>
+      ` : `
+        <div class="share-control">
+          <button class="btn btn-ghost compact-btn" type="button" data-detail-action="share" aria-controls="shareFallback" aria-expanded="false">Paylaş</button>
+          <div class="share-fallback" id="shareFallback" hidden>
             <a href="https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
             <a href="https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}" target="_blank" rel="noopener noreferrer">X</a>
-          `}
-          <button type="button" data-detail-action="copy">Linki Kopyala</button>
+            <button type="button" data-detail-action="copy">Linki Kopyala</button>
+          </div>
         </div>
-      </div>
-      ${post.type === "poem" ? '<button class="btn btn-ghost compact-btn" type="button" data-detail-action="canvas">Görsel Oluştur</button>' : ""}
+      `}
     </div>
     <div class="article-body${post.type === "poem" ? " poem-watermarked" : ""}">
       ${post.type === "poem" ? '<span class="poem-watermark" aria-hidden="true"><span>hissez.com</span></span>' : ""}
@@ -779,7 +820,7 @@ async function handleDetailClick(event, post) {
   const button = event.target.closest("[data-detail-action]");
   if (!button) return;
   const action = button.dataset.detailAction;
-  const canonical = `${SITE_URL}/yazi.html?id=${encodeURIComponent(post.id)}`;
+  const canonical = cleanPostUrl(post);
   if (action === "favorite") {
     const favorites = readIdList(FAVORITES_KEY);
     const exists = favorites.includes(post.id);
@@ -792,8 +833,7 @@ async function handleDetailClick(event, post) {
   }
   if (action === "share") {
     if (post.type === "poem") {
-      const fallback = document.getElementById("shareFallback");
-      setShareMenuState(fallback?.hidden !== false, button);
+      await openCanvasDialog();
       return;
     }
     if (navigator.share) {
@@ -812,11 +852,6 @@ async function handleDetailClick(event, post) {
     setShareMenuState(false);
     showToast("Bağlantı kopyalandı.");
   }
-  if (action === "poem-share") {
-    await runBusyAction(button, () => sharePoemImage(post, button.dataset.shareTarget || "generic"));
-    setShareMenuState(false);
-  }
-  if (action === "canvas") await openCanvasDialog();
   if (action === "canvas-close") document.getElementById("poemCanvasDialog")?.close();
   if (action === "canvas-page-prev") {
     canvasPreviewPage = Math.max(0, canvasPreviewPage - 1);
@@ -826,35 +861,22 @@ async function handleDetailClick(event, post) {
     canvasPreviewPage += 1;
     await drawPoemCanvas();
   }
-  if (action === "canvas-download") await runBusyAction(button, downloadCanvas);
-  if (action === "canvas-share-target") {
-    const target = button.dataset.shareTarget || "generic";
-    const forcedFormat = POEM_SHARE_TARGETS[target]?.format;
-    const formatSelect = document.getElementById("canvasFormat");
-    if (target !== "generic" && formatSelect && forcedFormat) {
-      formatSelect.value = forcedFormat;
-      await drawPoemCanvas();
-    }
-    await runBusyAction(button, () => sharePoemImage(post, target, readCanvasShareOptions()));
-  }
+  if (action === "canvas-share") await runBusyAction(button, () => sharePoemImage(post, readCanvasShareOptions()));
 }
 
 function renderCanvasDialog(post) {
   return `
     <dialog class="poem-canvas-dialog" id="poemCanvasDialog" aria-labelledby="poemCanvasTitle">
-      <div class="dialog-head"><div><p class="eyebrow">Şiir kartı</p><h2 id="poemCanvasTitle">Görsel Oluştur</h2></div><button class="dialog-close" type="button" data-detail-action="canvas-close" aria-label="Pencereyi kapat">×</button></div>
+      <div class="dialog-head"><div><p class="eyebrow">Şiir kartı</p><h2 id="poemCanvasTitle">Şiiri Paylaş</h2></div><button class="dialog-close" type="button" data-detail-action="canvas-close" aria-label="Pencereyi kapat">×</button></div>
       <div class="canvas-dialog-grid">
         <div class="canvas-controls">
           <label><span>Boyut</span><select id="canvasFormat"><option value="post">1080 × 1350 · Gönderi</option><option value="story">1080 × 1920 · Hikâye</option></select></label>
           <label><span>Görseldeki bölüm</span><textarea id="canvasExcerpt" maxlength="5000" rows="9">${escapeHTML(poemCanvasExcerpt(post))}</textarea></label>
           <p>Metni burada düzenleyebilirsin; asıl yazı değişmez.</p>
           <div class="canvas-actions poem-share-actions">
-            <button class="btn btn-ghost" type="button" data-detail-action="canvas-share-target" data-share-target="whatsapp">WhatsApp</button>
-            <button class="btn btn-ghost" type="button" data-detail-action="canvas-share-target" data-share-target="story">Instagram Hikâye</button>
-            <button class="btn btn-ghost" type="button" data-detail-action="canvas-share-target" data-share-target="instagram">Instagram Gönderi</button>
-            <button class="btn btn-ghost" type="button" data-detail-action="canvas-share-target" data-share-target="generic">Diğer Uygulamalar</button>
-            <button class="btn btn-primary" type="button" data-detail-action="canvas-download">İndir</button>
+            <button class="btn btn-primary" type="button" data-detail-action="canvas-share">Paylaş</button>
           </div>
+          <p class="canvas-share-note">Telefonda paylaşım ekranı açılır. Tarayıcı görsel paylaşımını desteklemiyorsa dosyalar otomatik indirilir.</p>
         </div>
         <div class="canvas-preview">
           <div class="canvas-page-nav" id="canvasPageNav" hidden>
@@ -1075,33 +1097,29 @@ async function createPoemImageFiles(post, options, suffix) {
   return files;
 }
 
-async function createPoemShareFiles(post, targetName = "generic", options = {}) {
-  const target = POEM_SHARE_TARGETS[targetName] || POEM_SHARE_TARGETS.generic;
-  const format = targetName === "generic" && options.format ? options.format : target.format;
-  const suffix = targetName === "generic" && format === "story" ? "story" : target.suffix;
+async function createPoemShareFiles(post, options = {}) {
+  const format = options.format === "story" ? "story" : "post";
   return createPoemImageFiles(post, {
     format,
     excerpt: options.excerpt || poemCanvasExcerpt(post)
-  }, suffix);
+  }, format);
 }
 
 function canShareFiles(files) {
   try {
-    return typeof navigator.share === "function"
-      && typeof navigator.canShare === "function"
-      && navigator.canShare({ files });
+    if (typeof navigator.share !== "function") return false;
+    return typeof navigator.canShare !== "function" || navigator.canShare({ files });
   } catch {
     return false;
   }
 }
 
-async function sharePoemImage(post, targetName = "generic", options = {}) {
-  const target = POEM_SHARE_TARGETS[targetName] || POEM_SHARE_TARGETS.generic;
+async function sharePoemImage(post, options = {}) {
   let files = [];
   try {
-    files = await createPoemShareFiles(post, targetName, options);
+    files = await createPoemShareFiles(post, options);
     const orderedFiles = [...files].sort((left, right) => left.name.localeCompare(right.name, "tr", { numeric: true }));
-    const shareUrl = `${SITE_URL}/yazi.html?id=${encodeURIComponent(post.id)}`;
+    const shareUrl = cleanPostUrl(post);
     if (canShareFiles(orderedFiles)) {
       const shareData = {
         files: orderedFiles,
@@ -1120,7 +1138,7 @@ async function sharePoemImage(post, targetName = "generic", options = {}) {
     }
 
     await downloadFiles(orderedFiles);
-    showToast(target.fallbackMessage);
+    showToast(orderedFiles.length > 1 ? `${orderedFiles.length} görsel indirildi.` : "Görsel indirildi.");
   } catch (error) {
     if (error?.name === "AbortError") return;
     if (files.length) {
@@ -1129,18 +1147,6 @@ async function sharePoemImage(post, targetName = "generic", options = {}) {
       return;
     }
     showToast("Görsel oluşturulamadı. Lütfen tekrar dene.");
-  }
-}
-
-async function downloadCanvas() {
-  if (!canvasPost) return;
-  try {
-    const options = readCanvasShareOptions();
-    const files = await createPoemImageFiles(canvasPost, options, options.format);
-    await downloadFiles(files);
-    showToast(files.length > 1 ? `${files.length} sayfalık görsel indirildi.` : "Görsel indirildi.");
-  } catch (error) {
-    if (error?.name !== "AbortError") showToast("Görsel oluşturulamadı. Lütfen tekrar dene.");
   }
 }
 
@@ -1170,21 +1176,58 @@ function renderLoadError(error) {
   console.error(error);
 }
 
+function snapshotToPostValue(snapshot) {
+  return Object.fromEntries(snapshot.docs.map((postDocument) => [postDocument.id, postDocument.data()]));
+}
+
 async function refreshScheduledPosts() {
+  if (!clockReady) return;
   const serverNow = Date.now() + serverOffset;
   const currentMinute = serverNow - (serverNow % 60000);
-  try {
-    const dueQuery = query(ref(db, "posts"), orderByChild("publishAt"), startAt(1), endAt(currentMinute));
-    const snapshot = await get(dueQuery);
-    scheduledValue = snapshot.val() || {};
-    renderCurrent();
-  } catch (error) {
-    const permissionDenied = error?.code === "PERMISSION_DENIED" || /permission denied/i.test(error?.message || "");
-    if (!permissionDenied && !scheduledWarningShown) {
-      scheduledWarningShown = true;
-      console.warn("Zamanlanmış yazılar şu anda kontrol edilemedi:", error);
-    }
+  const refreshVersion = ++scheduledRefreshVersion;
+  const dueEntries = scheduledIndex.filter(({ publishAt }) => Number(publishAt) > 0 && Number(publishAt) <= currentMinute);
+  const results = await Promise.allSettled(
+    dueEntries.map(({ id }) => getDoc(doc(postsCollection, id)))
+  );
+  if (refreshVersion !== scheduledRefreshVersion) return;
+
+  scheduledValue = {};
+  results.forEach((result) => {
+    if (result.status !== "fulfilled" || !result.value.exists()) return;
+    scheduledValue[result.value.id] = result.value.data();
+  });
+  scheduledWarningShown = false;
+  renderCurrent();
+  const rejected = results.find((result) => result.status === "rejected");
+  if (rejected && !scheduledWarningShown) {
+    scheduledWarningShown = true;
+    console.warn("Zamanlanmış yazılar şu anda kontrol edilemedi:", rejected.reason);
   }
+}
+
+function watchScheduledIndex() {
+  onSnapshot(postScheduleCollection, (snapshot) => {
+    scheduledIndex = snapshot.docs.map((scheduleDocument) => ({ id: scheduleDocument.id, ...scheduleDocument.data() }));
+    refreshScheduledPosts();
+  }, (error) => {
+    if (!scheduledWarningShown) {
+      scheduledWarningShown = true;
+      console.warn("Zamanlanmış yazı indeksi yüklenemedi:", error);
+    }
+  });
+}
+
+function watchPublishedPosts(onSettled) {
+  const publishedQuery = query(postsCollection, where("status", "==", "published"));
+  onSnapshot(publishedQuery, (snapshot) => {
+    onSettled();
+    publishedValue = snapshotToPostValue(snapshot);
+    writePublicPostsCache(publishedValue);
+    scheduledWarningShown = false;
+    renderCurrent();
+  }, (error) => {
+    onSettled(error);
+  });
 }
 
 function init() {
@@ -1204,31 +1247,28 @@ function init() {
     }
   }, 6000);
 
-  const publishedQuery = query(ref(db, "posts"), orderByChild("status"), equalTo("published"));
-  onValue(publishedQuery, (snapshot) => {
+  watchPublishedPosts((error = null) => {
     publishedRequestSettled = true;
     window.clearTimeout(loadingTimer);
-    publishedValue = snapshot.val() || {};
-    writePublicPostsCache(publishedValue);
-    renderCurrent();
-  }, (error) => {
-    publishedRequestSettled = true;
-    window.clearTimeout(loadingTimer);
+    if (!error) return;
     if (!hasCachedPosts) renderLoadError(error);
     else console.warn("Canlı yazılar yenilenemedi; son kaydedilen public içerikler gösteriliyor.", error);
   });
+  watchScheduledIndex();
 
-  get(ref(db, ".info/serverTimeOffset"))
+  get(ref(clockDb, ".info/serverTimeOffset"))
     .then((offsetSnapshot) => {
       serverOffset = Number(offsetSnapshot.val()) || 0;
+      clockReady = true;
       renderCurrent();
-      return refreshScheduledPosts();
+      refreshScheduledPosts();
     })
     .catch(() => {
       serverOffset = 0;
+      clockReady = true;
+      refreshScheduledPosts();
     });
 
-  refreshScheduledPosts();
   window.setInterval(refreshScheduledPosts, 60000);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") refreshScheduledPosts();

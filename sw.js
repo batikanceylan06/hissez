@@ -1,4 +1,4 @@
-const CACHE_NAME = "hissez-public-v31-single-watermark";
+const CACHE_NAME = "hissez-public-v33-share";
 const NETWORK_TIMEOUT_MS = 4500;
 const CORE_ASSETS = [
   "/",
@@ -9,8 +9,8 @@ const CORE_ASSETS = [
   "/yazi.html",
   "/hakkimda.html",
   "/assets/css/style.css",
-  "/assets/js/main.js?v=31",
-  "/assets/js/posts.js?v=31",
+  "/assets/js/main.js?v=33",
+  "/assets/js/posts.js?v=33",
   "/assets/js/post-utils.js",
   "/assets/js/firebase-config.js",
   "/assets/img/hissez-logo.png",
@@ -81,6 +81,9 @@ self.addEventListener("fetch", (event) => {
       const cachedResponse = await caches.match(event.request, { ignoreSearch: event.request.mode === "navigate" });
       if (cachedResponse) return cachedResponse;
       if (event.request.mode === "navigate") {
+        if (/^\/(?:siir|gun-notu)\//.test(url.pathname)) {
+          return (await caches.match("/yazi.html")) || Response.error();
+        }
         return (await caches.match(url.pathname)) || (await caches.match("/index.html")) || Response.error();
       }
       return Response.error();

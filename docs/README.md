@@ -23,22 +23,27 @@ Sezin’in şiirlerini ve günlük tarzı gün notlarını yayınlayabileceği F
 4. Authentication > Sign-in method bölümünden Email/Password girişini aktif et.
 5. Authentication > Users bölümünden Sezin için e-posta/şifre oluştur.
 6. Aşağıdaki “Admin Custom Claim kurulumu” adımlarıyla kullanıcıya `admin: true` yetkisi ver.
-7. `config/firebase-rules.json` kurallarını yayınla.
+7. `config/firestore.rules` kurallarını ve `config/firestore.indexes.json` indekslerini yayınla.
 
-## Realtime Database Rules
+## Firestore ve Realtime Database
 
-Aktif kurallar `config/firebase-rules.json` dosyasındadır. Public erişim yalnızca istemcinin
-`orderByChild("status").equalTo("published")` sorgusuna ve sunucu saatinin içinde bulunduğu
-dakikayla birebir sınırlandırılmış `publishAt` sorgusuna izin verir. Filtresiz `/posts`,
-taslak ve gelecekteki zamanlanmış içerik okumaları reddedilir. Yönetici tam okuma/yazma
-yetkisi `auth.token.admin === true` Custom Claim ile verilir.
+Esas post veri kaynağı Cloud Firestore'daki `posts` collection'ıdır. Public istemci yalnızca
+`status == "published"` ve zamanı gelmiş `scheduled` dokümanlarını kurallarla uyumlu ayrı
+sorgularla okuyabilir. Filtresiz collection okuması, taslaklar ve gelecekteki zamanlanmış
+içerikler reddedilir. Yönetici tam okuma/yazma yetkisi `auth.token.admin === true` Custom
+Claim ile verilir. RTDB postları rollback amacıyla korunur; istemci RTDB'yi yalnızca
+`.info/serverTimeOffset` için kullanır.
+
+Zamanlanmış yayın keşfi için `postSchedule/{postId}` collection'ında yalnızca `publishAt`
+ve `updatedAt` metadata alanları tutulur. Gelecekteki post başlığı ve içeriği bu collection'a
+yazılmaz; asıl post belgesi Rules tarafından yayın zamanı gelene kadar reddedilir.
 
 Kurallardaki iki e-posta kontrolü yalnızca mevcut yöneticileri ilk Custom Claim kurulana
 kadar kilitlememek için geçici uyumluluk katmanıdır. Tüm yönetici hesaplarına claim
 verildikten sonra bu e-posta koşulları kurallardan kaldırılmalıdır.
 
 Frontend dosyalarında yönetici e-posta listesi tutulmaz; gerçek yetki her zaman Firebase
-Authentication tokenı ve Realtime Database Rules tarafından belirlenir.
+Authentication tokenı ve Firestore Rules tarafından belirlenir.
 
 ## Admin Panel
 
@@ -53,7 +58,7 @@ Bu adres public menüde, footer’da veya ana sayfada görünmez. Ayrıca:
 - `sezin-panel.html` içinde `noindex, nofollow` vardır.
 - `robots.txt` panel dosyasını engeller.
 - `vercel.json` Vercel üzerinde panel için `X-Robots-Tag` header ekler.
-- Asıl güvenlik Firebase Auth + Database Rules tarafındadır.
+- Asıl güvenlik Firebase Auth + Firestore Rules tarafındadır.
 
 ## Yayın Mantığı
 
@@ -68,12 +73,12 @@ sağlayan yazılar görünür. Statik frontend fallback'i zamanlanmış kayıtla
 sorguyla kontrol ettiği için görünürlükte en fazla yaklaşık bir dakikalık gecikme olabilir.
 Gelecekteki zamanlanmış kayıtlar istemciye indirilmez.
 
-## Firebase Veri Yapısı
+## Firestore Veri Yapısı
+
+Collection/document yolu: `posts/{existingPostId}`
 
 ```json
 {
-  "posts": {
-    "postId": {
       "title": "İçimde Kalan Bir Cümle",
       "slug": "icimde-kalan-bir-cumle",
       "content": "Yazının tam içeriği...",
@@ -88,8 +93,6 @@ Gelecekteki zamanlanmış kayıtlar istemciye indirilmez.
       "date": "2026-04-30",
       "createdAt": 1777550000000,
       "updatedAt": 1777550000000
-    }
-  }
 }
 ```
 
@@ -103,7 +106,7 @@ Gelecekteki zamanlanmış kayıtlar istemciye indirilmez.
 
 Zamanlanmış yayın için durum olarak `Zamanlanmış` seçilir ve Türkiye tarih/saat alanı
 doldurulur. `publishAt`, UTC epoch milisaniyesi olarak saklanır. Yeni alanların üçü de
-opsiyoneldir; eski kayıtlar migration gerektirmeden çalışır.
+opsiyoneldir. RTDB'deki mevcut kayıtlar için `docs/firestore-migration.md` adımlarını uygula.
 
 Gerçek bir sunucu işlemiyle `scheduled` kaydını tam vaktinde `published` yapmak istersen
 opsiyonel Cloud Functions yaklaşımı için `docs/scheduled-publishing.md` dosyasına bak.
@@ -115,7 +118,7 @@ Bu işlem yalnızca güvenilen bir yerel makinede veya yönetici backend ortamı
 Firebase servis hesabı anahtarını repoya koyma.
 
 ```powershell
-npm install --no-save --no-package-lock firebase-admin
+npm install
 $env:GOOGLE_APPLICATION_CREDENTIALS="C:\guvenli-konum\service-account.json"
 node scripts/set-admin-claim.mjs yonetici@ornek.com grant
 ```
@@ -127,24 +130,24 @@ node scripts/set-admin-claim.mjs yonetici@ornek.com revoke
 ```
 
 Claim değişikliğinden sonra kullanıcı panelden çıkış yapıp tekrar giriş yapmalıdır. Tüm
-mevcut yöneticilere claim verildikten sonra `config/firebase-rules.json` içindeki geçici
+mevcut yöneticilere claim verildikten sonra `config/firestore.rules` içindeki geçici
 `auth.token.email` koşullarını kaldır ve yalnızca `auth.token.admin === true` bırak.
 
 ## Güvenli yayınlama sırası
 
-Önce güncel frontend/Vercel sürümünü yayınla; ardından Database Rules'ı yayınla. Böylece
-eski Service Worker önbelleği temizlenirken public site kesintiye uğramaz.
+Migration ve doğrulama tamamlandıktan sonra önce Firestore Rules/indekslerini, ardından
+frontend'i yayınla. Ayrıntılı ve geri alınabilir sıra `docs/firestore-migration.md` içindedir.
 
 ```powershell
-npx firebase-tools deploy --only database --project hissez
+npx firebase-tools deploy --only firestore --project hissez
 ```
 
-`firebase.json`, kuralların `config/firebase-rules.json` konumundan alınmasını sağlar.
+`firebase.json`, Firestore ve korunmuş RTDB yapılandırmalarını birlikte tutar.
 
 Kuralları production verisine dokunmadan emülatörde test etmek için:
 
 ```powershell
-npx -y firebase-tools@latest emulators:exec --only database,auth --project demo-hissez "node scripts/test-firebase-rules.mjs"
+npm run test:rules
 ```
 
 Hazır komutlar:
@@ -153,6 +156,7 @@ Hazır komutlar:
 npm test
 npm run test:utils
 npm run test:rules
+npm run test:migration
 ```
 
 ## Tarayıcıda saklanan tercihler

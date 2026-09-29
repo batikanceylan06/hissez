@@ -1,0 +1,114 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && (
+          request.auth.token.admin == true
+          || request.auth.token.email == 'batikanceylan06@gmail.com'
+          || request.auth.token.email == 'kocasezinkoca@icloud.com'
+        );
+    }
+
+    function isPublicPost(data) {
+      return data.status == 'published'
+        || (
+          data.status == 'scheduled'
+          && data.publishAt is number
+          && data.publishAt <= request.time.toMillis()
+        );
+    }
+
+    function hasValidSchedule(data) {
+      return (
+          data.status == 'scheduled'
+          && data.keys().hasAll(['publishAt'])
+          && data.publishAt is number
+          && data.publishAt > 0
+        )
+        || (
+          (data.status == 'published' || data.status == 'draft')
+          && (
+            !data.keys().hasAny(['publishAt'])
+            || data.publishAt == null
+          )
+        );
+    }
+
+    function isValidPost(data) {
+      return data.keys().hasAll([
+          'title',
+          'slug',
+          'content',
+          'type',
+          'status',
+          'date',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'title',
+          'slug',
+          'content',
+          'type',
+          'category',
+          'status',
+          'publishAt',
+          'series',
+          'featured',
+          'excerpt',
+          'authorNote',
+          'date',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.title is string
+        && data.title.size() > 0
+        && data.title.size() <= 120
+        && data.slug is string
+        && data.slug.size() > 0
+        && data.slug.size() <= 180
+        && data.slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$')
+        && data.content is string
+        && data.content.size() > 0
+        && data.content.size() <= 100000
+        && data.type in ['poem', 'daily']
+        && data.status in ['published', 'draft', 'scheduled']
+        && (!data.keys().hasAny(['category']) || (data.category is string && data.category.size() <= 50))
+        && (!data.keys().hasAny(['series']) || (data.series is string && data.series.size() <= 80))
+        && (!data.keys().hasAny(['authorNote']) || (data.authorNote is string && data.authorNote.size() <= 1000))
+        && (!data.keys().hasAny(['featured']) || data.featured is bool)
+        && (!data.keys().hasAny(['excerpt']) || (data.excerpt is string && data.excerpt.size() <= 220))
+        && data.date is string
+        && data.date.matches('^(19|20)[0-9][0-9]-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])$')
+        && data.createdAt is number
+        && data.createdAt > 0
+        && data.updatedAt is number
+        && data.updatedAt > 0
+        && hasValidSchedule(data);
+    }
+
+    match /posts/{postId} {
+      allow get, list: if isAdmin() || isPublicPost(resource.data);
+      allow create, update: if isAdmin() && isValidPost(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /postSchedule/{postId} {
+      allow get, list: if true;
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasAll(['publishAt', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['publishAt', 'updatedAt'])
+        && request.resource.data.publishAt is number
+        && request.resource.data.publishAt > 0
+        && request.resource.data.updatedAt is number
+        && request.resource.data.updatedAt > 0;
+      allow delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

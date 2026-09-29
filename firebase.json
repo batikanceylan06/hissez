@@ -2,12 +2,19 @@
   "database": {
     "rules": "config/firebase-rules.json"
   },
+  "firestore": {
+    "rules": "config/firestore.rules",
+    "indexes": "config/firestore.indexes.json"
+  },
   "emulators": {
     "auth": {
       "port": 9099
     },
     "database": {
       "port": 9000
+    },
+    "firestore": {
+      "port": 8080
     },
     "singleProjectMode": true
   }

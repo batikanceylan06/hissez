@@ -29,14 +29,21 @@ assets/
 
 config/
 - firebase-rules.json
+- firestore.rules
+- firestore.indexes.json
 
 docs/
 - README.md
+- firestore-migration.md
 - scheduled-publishing.md
 
 scripts/
 - set-admin-claim.mjs
+- migrate-rtdb-to-firestore.mjs
+- verify-firestore-migration.mjs
 - test-firebase-rules.mjs
+- test-firestore-rules.mjs
+- test-firestore-migration.mjs
 - test-post-utils.mjs
 - test-static.mjs
 

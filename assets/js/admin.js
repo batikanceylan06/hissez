@@ -1,9 +1,21 @@
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, getIdTokenResult } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import { getDatabase, ref, get, onValue, off, push, set, update, remove } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+import {
+  getFirestore,
+  collection,
+  doc,
+  query,
+  limit,
+  getDocs,
+  onSnapshot,
+  deleteField,
+  writeBatch
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { app } from "./firebase-config.js";
 
 const auth = getAuth(app);
-const db = getDatabase(app);
+const firestore = getFirestore(app);
+const postsCollection = collection(firestore, "posts");
+const postScheduleCollection = collection(firestore, "postSchedule");
 const body = document.body;
 const root = document.documentElement;
 const THEME_KEY = "hissez-theme";
@@ -42,7 +54,7 @@ const statPoem = document.getElementById("statPoem");
 const statDaily = document.getElementById("statDaily");
 
 let allPosts = [];
-let postsRef = null;
+let stopPostsListener = null;
 let postsListenerStarted = false;
 let adminAuthorized = false;
 
@@ -142,9 +154,9 @@ async function hasAdminAccess(user) {
   }
 
   // Custom Claim kurulana kadar mevcut yöneticileri kilitlememek için yetkiyi
-  // istemcideki bir e-posta listesinden değil, Database Rules üzerinden sınar.
+  // istemcideki bir e-posta listesinden değil, Firestore Rules üzerinden sınar.
   try {
-    await get(ref(db, "posts"));
+    await getDocs(query(postsCollection, limit(1)));
     return true;
   } catch {
     return false;
@@ -175,6 +187,15 @@ function slugify(value = "") {
     .trim()
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-") || "yazi";
+}
+
+function uniqueSlug(value, currentId = null) {
+  const base = slugify(value).slice(0, 170);
+  const used = new Set(allPosts.filter((post) => post.id !== currentId).map((post) => post.slug));
+  if (!used.has(base)) return base;
+  let number = 2;
+  while (used.has(`${base}-${number}`)) number += 1;
+  return `${base}-${number}`;
 }
 
 function getDateTime(post) {
@@ -267,16 +288,16 @@ function resetForm() {
 
 
 async function ensureSingleFeatured(currentId = null) {
-  const updates = {};
+  const batch = writeBatch(firestore);
+  let hasUpdates = false;
   allPosts.forEach((post) => {
     if (post.featured && post.id !== currentId) {
-      updates[`posts/${post.id}/featured`] = false;
+      batch.update(doc(postsCollection, post.id), { featured: false, updatedAt: Date.now() });
       post.featured = false;
+      hasUpdates = true;
     }
   });
-  if (Object.keys(updates).length) {
-    await update(ref(db), updates);
-  }
+  if (hasUpdates) await batch.commit();
 }
 
 function getFormPayload(statusOverride = null) {
@@ -300,14 +321,13 @@ function getFormPayload(statusOverride = null) {
 
   const current = editingId.value ? allPosts.find((post) => post.id === editingId.value) : null;
 
-  return {
+  const payload = {
     title,
-    slug: current?.slug || `${slugify(title)}-${Date.now().toString(36)}`,
+    slug: current?.slug || uniqueSlug(title, current?.id),
     content,
     type,
     category: postCategory.value.trim() || typeLabel(type),
     status,
-    publishAt,
     series: postSeries.value.trim(),
     featured: postFeatured.checked,
     excerpt: postExcerpt.value.trim(),
@@ -315,6 +335,8 @@ function getFormPayload(statusOverride = null) {
     date: postDate.value || today(),
     updatedAt: Date.now()
   };
+  if (status === "scheduled") payload.publishAt = publishAt;
+  return payload;
 }
 
 
@@ -337,17 +359,30 @@ async function savePost(statusOverride = null) {
 
     if (id) {
       const current = allPosts.find((post) => post.id === id);
-      await update(ref(db, `posts/${id}`), {
+      const batch = writeBatch(firestore);
+      batch.update(doc(postsCollection, id), {
         ...payload,
-        createdAt: current?.createdAt || Date.now()
+        createdAt: current?.createdAt || Date.now(),
+        ...(payload.status === "scheduled" ? {} : { publishAt: deleteField() })
       });
+      if (payload.status === "scheduled") {
+        batch.set(doc(postScheduleCollection, id), { publishAt: payload.publishAt, updatedAt: payload.updatedAt });
+      } else {
+        batch.delete(doc(postScheduleCollection, id));
+      }
+      await batch.commit();
       showNotice(adminNotice, "success", payload.status === "scheduled" ? `Yazı ${formatTurkeyDateTime(payload.publishAt)} için zamanlandı.` : "Yazı başarıyla güncellendi.");
     } else {
-      const newRef = push(ref(db, "posts"));
-      await set(newRef, {
+      const newPostRef = doc(postsCollection);
+      const batch = writeBatch(firestore);
+      batch.set(newPostRef, {
         ...payload,
         createdAt: Date.now()
       });
+      if (payload.status === "scheduled") {
+        batch.set(doc(postScheduleCollection, newPostRef.id), { publishAt: payload.publishAt, updatedAt: payload.updatedAt });
+      }
+      await batch.commit();
       const message = payload.status === "published"
         ? "Yazı yayına alındı."
         : payload.status === "scheduled"
@@ -389,11 +424,14 @@ async function togglePublish(id) {
   const nextStatus = post.status === "published" ? "draft" : "published";
 
   try {
-    await update(ref(db, `posts/${id}`), {
+    const batch = writeBatch(firestore);
+    batch.update(doc(postsCollection, id), {
       status: nextStatus,
-      publishAt: null,
+      publishAt: deleteField(),
       updatedAt: Date.now()
     });
+    batch.delete(doc(postScheduleCollection, id));
+    await batch.commit();
     showNotice(adminNotice, "success", nextStatus === "published" ? "Yazı yayına alındı." : "Yazı yayından kaldırıldı.");
   } catch (error) {
     showNotice(adminNotice, "error", firebaseMessage(error, "Durum güncellenirken hata oluştu."));
@@ -408,7 +446,10 @@ async function deletePost(id) {
   if (!confirmed) return;
 
   try {
-    await remove(ref(db, `posts/${id}`));
+    const batch = writeBatch(firestore);
+    batch.delete(doc(postsCollection, id));
+    batch.delete(doc(postScheduleCollection, id));
+    await batch.commit();
     if (editingId.value === id) resetForm();
     showNotice(adminNotice, "success", "Yazı silindi.");
   } catch (error) {
@@ -471,10 +512,8 @@ function renderStats() {
 }
 
 function stopWatchingPosts() {
-  if (postsRef) {
-    off(postsRef);
-  }
-  postsRef = null;
+  stopPostsListener?.();
+  stopPostsListener = null;
   postsListenerStarted = false;
   allPosts = [];
 }
@@ -482,12 +521,11 @@ function stopWatchingPosts() {
 function watchPosts() {
   if (postsListenerStarted) return;
 
-  postsRef = ref(db, "posts");
   postsListenerStarted = true;
 
-  onValue(postsRef, (snapshot) => {
-    allPosts = Object.entries(snapshot.val() || {})
-      .map(([id, post]) => ({ id, ...post }))
+  stopPostsListener = onSnapshot(postsCollection, (snapshot) => {
+    allPosts = snapshot.docs
+      .map((postDocument) => ({ id: postDocument.id, ...postDocument.data() }))
       .sort((a, b) => getSortTime(b) - getSortTime(a));
 
     renderStats();
@@ -509,7 +547,7 @@ function firebaseMessage(error, fallback) {
   if (code === "auth/too-many-requests") return "Çok fazla deneme yapıldı. Bir süre sonra tekrar dene.";
   if (code === "auth/network-request-failed") return "Ağ bağlantısı kurulamadı. İnterneti ve Firebase erişimini kontrol et.";
   if (code === "auth/unauthorized-domain") return "Bu domain Firebase Authentication içinde yetkili değil. Authentication > Settings > Authorized domains kısmına domaini ekle.";
-  if (code === "PERMISSION_DENIED") return "Firebase izin vermedi. Admin Custom Claim ve Realtime Database Rules ayarlarını kontrol et.";
+  if (code === "permission-denied" || code === "PERMISSION_DENIED") return "Firebase izin vermedi. Admin Custom Claim ve Firestore Rules ayarlarını kontrol et.";
 
   return error?.message || fallback;
 }

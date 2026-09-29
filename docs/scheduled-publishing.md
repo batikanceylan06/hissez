@@ -13,34 +13,38 @@ Bu, mevcut istemci fallback'inin yerine geçmek zorunda değildir; birlikte çal
 ```js
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { initializeApp } from "firebase-admin/app";
-import { getDatabase } from "firebase-admin/database";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 
 initializeApp();
 
 export const publishDuePosts = onSchedule(
   { schedule: "every 1 minutes", timeZone: "Europe/Istanbul" },
   async () => {
-    const db = getDatabase();
+    const db = getFirestore();
     const now = Date.now();
-    const snapshot = await db.ref("posts")
-      .orderByChild("publishAt")
-      .startAt(1)
-      .endAt(now)
+    const snapshot = await db.collection("posts")
+      .where("status", "==", "scheduled")
+      .where("publishAt", "<=", now)
+      .orderBy("publishAt", "asc")
       .get();
 
-    const updates = {};
-    snapshot.forEach((child) => {
-      if (child.child("status").val() !== "scheduled") return;
-      updates[`posts/${child.key}/status`] = "published";
-      updates[`posts/${child.key}/publishAt`] = null;
-      updates[`posts/${child.key}/updatedAt`] = now;
-    });
+    const batch = db.batch();
+    snapshot.docs.forEach((post) => batch.update(post.ref, {
+      status: "published",
+      publishAt: FieldValue.delete(),
+      updatedAt: now
+    }));
+    snapshot.docs.forEach((post) => batch.delete(db.collection("postSchedule").doc(post.id)));
 
-    if (Object.keys(updates).length) await db.ref().update(updates);
+    if (!snapshot.empty) await batch.commit();
   }
 );
 ```
 
 Bu çözüm için Functions projesi ve Scheduler faturalandırması gerekir. Service account
 anahtarı frontend'e veya repoya konmamalıdır. Fonksiyonu eklemeden önce emülatörde test et;
-ardından önce frontend'i, sonra Database Rules'ı ve en son Function'ı yayınla.
+ardından Firestore Rules/indekslerini, Function'ı ve en son frontend'i yayınla.
+
+Bu opsiyonel Function etkinleştirilirse `status ASC + publishAt ASC` composite indexini
+`config/firestore.indexes.json` dosyasına ekle. Mevcut backend'siz `postSchedule` akışı bu
+composite indexe ihtiyaç duymaz.

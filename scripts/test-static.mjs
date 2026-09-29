@@ -48,7 +48,7 @@ for (const resilienceToken of ["NETWORK_TIMEOUT_MS", "AbortController", "ignoreS
   assert.ok(sw.includes(resilienceToken), `PWA dayanıklılık özelliği eksik: ${resilienceToken}`);
 }
 for (const safariRecoveryToken of [
-  'hissez-public-v31-single-watermark',
+  'hissez-public-v33-share',
   'key.startsWith("hissez-")',
   "await self.skipWaiting()",
   "await self.clients.claim()"
@@ -58,7 +58,7 @@ for (const safariRecoveryToken of [
 
 const main = readFileSync(resolve(root, "assets/js/main.js"), "utf8");
 for (const recoveryToken of [
-  'const PWA_RECOVERY_VERSION = "31"',
+  'const PWA_RECOVERY_VERSION = "33"',
   'name.startsWith("hissez-")',
   "registration.unregister()",
   "caches.delete(name)",
@@ -68,13 +68,61 @@ for (const recoveryToken of [
 }
 for (const file of htmlFiles.filter((file) => file !== "sezin-panel.html")) {
   const html = readFileSync(resolve(root, file), "utf8");
-  assert.ok(html.includes('assets/js/main.js?v=31'), `${file}: sürümlü main.js bağlantısı eksik`);
-  assert.ok(html.includes('assets/js/posts.js?v=31'), `${file}: sürümlü posts.js bağlantısı eksik`);
+  assert.ok(html.includes('assets/js/main.js?v=33'), `${file}: sürümlü main.js bağlantısı eksik`);
+  assert.ok(html.includes('assets/js/posts.js?v=33'), `${file}: sürümlü posts.js bağlantısı eksik`);
 }
+assert.ok(panel.includes('assets/js/admin.js?v=33'), "Panel sürümlü admin.js bağlantısı eksik");
 
 const posts = readFileSync(resolve(root, "assets/js/posts.js"), "utf8");
 assert.ok(posts.includes('const PUBLIC_POSTS_CACHE_KEY = "hissezPublicPostsV1"'), "Public yazı offline cache'i eksik");
-assert.ok(posts.indexOf("onValue(publishedQuery") < posts.indexOf('get(ref(db, ".info/serverTimeOffset"))'), "Public listener sunucu saatini bekliyor");
+assert.ok(posts.includes("firebase-firestore.js"), "Public yazılar Firestore SDK kullanmıyor");
+assert.ok(posts.indexOf("watchPublishedPosts(") < posts.indexOf('get(ref(clockDb, ".info/serverTimeOffset"))'), "Public listener sunucu saatini bekliyor");
+assert.ok(posts.includes('where("status", "==", "published")'), "Published Firestore sorgusu eksik");
+assert.ok(posts.includes('collection(firestore, "postSchedule")'), "Scheduled metadata collection eksik");
+assert.ok(posts.includes("getDoc(doc(postsCollection, id))"), "Due scheduled tekil okuması eksik");
+assert.ok(!posts.includes('ref(clockDb, "posts"'), "Public post verisi RTDB üzerinden okunuyor");
+
+const admin = readFileSync(resolve(root, "assets/js/admin.js"), "utf8");
+assert.ok(admin.includes("firebase-firestore.js"), "Admin panel Firestore SDK kullanmıyor");
+for (const firestoreAdminToken of ["onSnapshot(postsCollection", "doc(postsCollection)", "batch.update(doc(postsCollection", "batch.delete(doc(postsCollection", "writeBatch(firestore)", 'collection(firestore, "postSchedule")']) {
+  assert.ok(admin.includes(firestoreAdminToken), `Admin Firestore özelliği eksik: ${firestoreAdminToken}`);
+}
+assert.ok(!admin.includes("firebase-database.js"), "Admin panelde RTDB SDK referansı kaldı");
+
+for (const requiredFile of [
+  "config/firestore.rules",
+  "config/firestore.indexes.json",
+  "scripts/migrate-rtdb-to-firestore.mjs",
+  "scripts/verify-firestore-migration.mjs",
+  "scripts/test-firestore-rules.mjs",
+  "scripts/test-firestore-migration.mjs",
+  "docs/firestore-migration.md"
+]) {
+  assert.ok(existsSync(resolve(root, requiredFile)), `Firestore migration dosyası eksik: ${requiredFile}`);
+}
+
+const firestoreRules = readFileSync(resolve(root, "config/firestore.rules"), "utf8");
+for (const rulesToken of [
+  "rules_version = '2'",
+  "allow get, list: if isAdmin() || isPublicPost(resource.data)",
+  "match /postSchedule/{postId}",
+  "allow read, write: if false"
+]) {
+  assert.ok(firestoreRules.includes(rulesToken), `Firestore güvenlik kuralı eksik: ${rulesToken}`);
+}
+
+const migration = readFileSync(resolve(root, "scripts/migrate-rtdb-to-firestore.mjs"), "utf8");
+for (const migrationToken of [
+  'const APPLY = process.argv.includes("--apply")',
+  "const BATCH_SIZE = 400",
+  'rtdb.ref("posts").get()',
+  'firestore.collection("posts").doc(id)',
+  "if (!APPLY)",
+  "SCHEDULE INDEX CHANGES"
+]) {
+  assert.ok(migration.includes(migrationToken), `Migration güvenlik özelliği eksik: ${migrationToken}`);
+}
+assert.ok(migration.indexOf("if (!APPLY)") < migration.indexOf("await batch.commit()"), "Dry run koruması yazımdan sonra çalışıyor");
 for (const requiredWatermarkToken of [
   'const CANVAS_WATERMARK = Object.freeze({ opacity: .075, fontSize: 150 })',
   'ctx.fillText("hissez.com", 0, 0)',
@@ -86,18 +134,31 @@ assert.ok(!posts.includes('id="canvasWatermark"'), "Filigran mod seçimi kaldır
 assert.ok(!posts.includes("CANVAS_WATERMARK_MODES"), "Eski çoklu filigran modları kaldırılmadı");
 
 for (const requiredShareToken of [
-  'data-share-target="whatsapp"',
-  'data-share-target="story"',
-  'data-share-target="instagram"',
+  'data-detail-action="canvas-share">Paylaş',
+  'id="canvasFormat"',
   'story: { width: 1080, height: 1920, maxLines: 18 }',
   "canvasToFile(canvas, filename)",
-  "createPoemShareFiles(post, targetName",
-  "sharePoemImage(post, targetName",
+  "createPoemShareFiles(post, options",
+  "sharePoemImage(post, readCanvasShareOptions())",
   'left.name.localeCompare(right.name, "tr", { numeric: true })',
   "await downloadFiles(orderedFiles)",
+  "cleanPostUrl(post)",
   'text: `${post.title || "Hissez şiiri"} — Hissez\\n${shareUrl}`'
 ]) {
   assert.ok(posts.includes(requiredShareToken), `Şiir görseli paylaşım özelliği eksik: ${requiredShareToken}`);
+}
+assert.ok(!posts.includes('data-detail-action="canvas-share-target"'), "Eski uygulama bazlı paylaşım düğmeleri hâlâ mevcut");
+assert.ok(!posts.includes('data-detail-action="canvas-download"'), "Ayrı görsel indirme düğmesi hâlâ mevcut");
+
+for (const cleanUrlToken of [
+  'return `/${section}/${encodeURIComponent(cleanPostSlug(post))}`',
+  'location.pathname.match(/^\\/(?:siir|gun-notu)',
+  'const canonical = cleanPostUrl(post)'
+]) {
+  assert.ok(posts.includes(cleanUrlToken), `Temiz yazı adresi özelliği eksik: ${cleanUrlToken}`);
+}
+for (const rewrite of ["/siir/:slug", "/gun-notu/:slug"]) {
+  assert.ok((vercel.rewrites || []).some((item) => item.source === rewrite && item.destination.includes("/yazi.html?slug=")), `Vercel temiz URL rewrite eksik: ${rewrite}`);
 }
 
 for (const requiredPaginationToken of [

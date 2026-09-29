@@ -4,3 +4,9 @@ node_modules/
 .env.*
 service-account*.json
 **/service-account*.json
+serviceAccount*.json
+**/serviceAccount*.json
+*-firebase-admin.json
+**/*-firebase-admin.json
+firebase-admin-key*.json
+**/firebase-admin-key*.json
