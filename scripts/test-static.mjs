@@ -39,13 +39,37 @@ for (const requiredId of ["postPublishAt", "postSeries", "postAuthorNote", "stat
 const sw = readFileSync(resolve(root, "sw.js"), "utf8");
 const cachedAssets = [...sw.matchAll(/^\s*"(\/[^"]+)"[,]?$/gm)].map((match) => match[1]);
 for (const asset of cachedAssets) {
-  const localPath = asset === "/" ? "index.html" : asset.slice(1);
+  const localPath = asset === "/" ? "index.html" : asset.slice(1).split(/[?#]/)[0];
   assert.ok(existsSync(resolve(root, localPath)), `Service Worker kaynağı eksik: ${asset}`);
 }
 assert.ok(cachedAssets.includes("/assets/js/post-utils.js"), "post-utils.js Service Worker cache listesinde değil");
 assert.ok(cachedAssets.includes("/arsiv.html"), "arsiv.html Service Worker cache listesinde değil");
 for (const resilienceToken of ["NETWORK_TIMEOUT_MS", "AbortController", "ignoreSearch", "OPTIONAL_ASSETS"]) {
   assert.ok(sw.includes(resilienceToken), `PWA dayanıklılık özelliği eksik: ${resilienceToken}`);
+}
+for (const safariRecoveryToken of [
+  'hissez-public-v29-safari-recovery',
+  'key.startsWith("hissez-")',
+  "await self.skipWaiting()",
+  "await self.clients.claim()"
+]) {
+  assert.ok(sw.includes(safariRecoveryToken), `Safari PWA yenileme özelliği eksik: ${safariRecoveryToken}`);
+}
+
+const main = readFileSync(resolve(root, "assets/js/main.js"), "utf8");
+for (const recoveryToken of [
+  'const PWA_RECOVERY_VERSION = "29"',
+  'name.startsWith("hissez-")',
+  "registration.unregister()",
+  "caches.delete(name)",
+  'updateViaCache: "none"'
+]) {
+  assert.ok(main.includes(recoveryToken), `Safari istemci kurtarma özelliği eksik: ${recoveryToken}`);
+}
+for (const file of htmlFiles.filter((file) => file !== "sezin-panel.html")) {
+  const html = readFileSync(resolve(root, file), "utf8");
+  assert.ok(html.includes('assets/js/main.js?v=29'), `${file}: sürümlü main.js bağlantısı eksik`);
+  assert.ok(html.includes('assets/js/posts.js?v=29'), `${file}: sürümlü posts.js bağlantısı eksik`);
 }
 
 const posts = readFileSync(resolve(root, "assets/js/posts.js"), "utf8");

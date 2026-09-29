@@ -1,4 +1,4 @@
-const CACHE_NAME = "hissez-public-v28-resilient-loading";
+const CACHE_NAME = "hissez-public-v29-safari-recovery";
 const NETWORK_TIMEOUT_MS = 4500;
 const CORE_ASSETS = [
   "/",
@@ -9,8 +9,8 @@ const CORE_ASSETS = [
   "/yazi.html",
   "/hakkimda.html",
   "/assets/css/style.css",
-  "/assets/js/main.js",
-  "/assets/js/posts.js",
+  "/assets/js/main.js?v=29",
+  "/assets/js/posts.js?v=29",
   "/assets/js/post-utils.js",
   "/assets/js/firebase-config.js",
   "/assets/img/hissez-logo.png",
@@ -35,17 +35,20 @@ self.addEventListener("install", (event) => {
     const cache = await caches.open(CACHE_NAME);
     await cache.addAll(CORE_ASSETS);
     await Promise.allSettled(OPTIONAL_ASSETS.map((asset) => cache.add(asset)));
+    await self.skipWaiting();
   })());
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(caches.keys().then((keys) => Promise.all(
-    keys
-      .filter((key) => (key.startsWith("hissez-public-") || key.startsWith("hissez-panel-")) && key !== CACHE_NAME)
-      .map((key) => caches.delete(key))
-  )));
-  self.clients.claim();
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        .filter((key) => key.startsWith("hissez-") && key !== CACHE_NAME)
+        .map((key) => caches.delete(key))
+    );
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener("fetch", (event) => {

@@ -5,6 +5,9 @@ const siteNav = document.querySelector("[data-site-nav]");
 const THEME_KEY = "hissez-theme";
 const TRACK_KEY = "hissez-audio-track";
 const MUTE_KEY = "hissez-audio-muted";
+const PWA_RECOVERY_VERSION = "29";
+const PWA_RECOVERY_KEY = "hissez-pwa-recovery-version";
+const PWA_RECOVERY_PARAM = "hissez-pwa-reset";
 
 const tracks = [
   { title: "Sessiz Ambiyans", subtitle: "Yumuşak ve düz fon", src: "assets/audio/hissez-sessiz-ambiyans.ogg?v=2" },
@@ -200,9 +203,67 @@ initCommon();
 initAudioPlayer();
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" })
-      .then((registration) => registration.update())
-      .catch((error) => console.error("Service worker kaydı başarısız:", error));
+  window.addEventListener("load", async () => {
+    const recoveryUrl = new URL(location.href);
+    const isRecoveryReload = recoveryUrl.searchParams.get(PWA_RECOVERY_PARAM) === PWA_RECOVERY_VERSION;
+
+    try {
+      const registrations = navigator.serviceWorker.getRegistrations
+        ? await navigator.serviceWorker.getRegistrations()
+        : [await navigator.serviceWorker.getRegistration()].filter(Boolean);
+      const cacheNames = "caches" in window ? await caches.keys() : [];
+      const hissezCacheNames = cacheNames.filter((name) => name.startsWith("hissez-"));
+      let recoveredVersion = "";
+
+      try {
+        recoveredVersion = localStorage.getItem(PWA_RECOVERY_KEY) || "";
+      } catch {
+        // Safari gizli modunda depolama kısıtlıysa URL işareti tek seferlik döngüyü önler.
+      }
+
+      const hasExistingPwaState = registrations.length > 0 || hissezCacheNames.length > 0;
+      if (recoveredVersion !== PWA_RECOVERY_VERSION && !isRecoveryReload && hasExistingPwaState) {
+        await Promise.allSettled(registrations.map((registration) => registration.unregister()));
+        await Promise.allSettled(hissezCacheNames.map((name) => caches.delete(name)));
+
+        try {
+          localStorage.setItem(PWA_RECOVERY_KEY, PWA_RECOVERY_VERSION);
+        } catch {
+          // URL işareti depolama kapalıyken de yeniden yükleme döngüsünü engeller.
+        }
+
+        recoveryUrl.searchParams.set(PWA_RECOVERY_PARAM, PWA_RECOVERY_VERSION);
+        location.replace(recoveryUrl.href);
+        return;
+      }
+
+      if (isRecoveryReload) {
+        recoveryUrl.searchParams.delete(PWA_RECOVERY_PARAM);
+        history.replaceState(history.state, "", `${recoveryUrl.pathname}${recoveryUrl.search}${recoveryUrl.hash}`);
+      }
+
+      try {
+        localStorage.setItem(PWA_RECOVERY_KEY, PWA_RECOVERY_VERSION);
+      } catch {
+        // PWA kaydı localStorage olmadan da çalışır.
+      }
+
+      const hadController = Boolean(navigator.serviceWorker.controller);
+      if (hadController) {
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (refreshing) return;
+          refreshing = true;
+          location.reload();
+        }, { once: true });
+      }
+
+      const registration = await navigator.serviceWorker.register(`/sw.js?v=${PWA_RECOVERY_VERSION}`, {
+        updateViaCache: "none"
+      });
+      await registration.update();
+    } catch (error) {
+      console.error("Service worker kaydı başarısız:", error);
+    }
   });
 }
