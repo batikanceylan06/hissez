@@ -249,6 +249,10 @@ function postFirstLine(post, max = 130) {
   return escapeHTML(truncate(firstLine, max));
 }
 
+function featuredContentPreview(post, max = 520) {
+  return escapeHTML(truncate(post.content || post.excerpt || "", max));
+}
+
 function renderCard(post) {
   const href = postHref(post);
   const minutes = readingMinutes(post.content);
@@ -352,10 +356,12 @@ function renderHome(posts) {
           <p class="eyebrow">Editörün seçimi</p>
           <div class="post-meta"><span>${typeLabel(featuredPost.type)}</span>${categoryChip(featuredPost)}</div>
           <h3>${escapeHTML(featuredPost.title || "Başlıksız Yazı")}</h3>
-          <p>${postExcerpt(featuredPost, 220)}</p>
           <p class="featured-reading-meta">${formatDate(featuredPost.date)} · ${readingMinutes(featuredPost.content)} dk okuma</p>
         </div>
-        <a class="btn btn-primary" href="${postHref(featuredPost)}">Okumaya Devam Et</a>
+        <div class="featured-post-reading">
+          <p class="featured-poem-text">${featuredContentPreview(featuredPost)}</p>
+          <a class="btn btn-primary" href="${postHref(featuredPost)}">Okumaya Devam Et</a>
+        </div>
       </article>`;
   } else if (featured) {
     featured.closest("section")?.setAttribute("hidden", "");

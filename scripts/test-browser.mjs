@@ -111,15 +111,20 @@ try {
     const themeBefore = document.documentElement.dataset.theme;
     document.getElementById("themeToggle").click();
     const cards = [...document.querySelectorAll("#latestPosts .compact-blog-card")];
+    const featured = document.querySelector(".featured-post");
+    const featuredPreview = featured?.querySelector(".featured-poem-text");
     resolve({
       menuOpened,
       themeChanged: document.documentElement.dataset.theme !== themeBefore,
+      featuredPreview: Boolean(featuredPreview?.textContent.trim()),
+      featuredHeight: Math.round(featured?.getBoundingClientRect().height || 0),
       compactCards: cards.length > 0 && cards.every((card) => card.querySelector(":scope > h3") && card.querySelector(":scope > p") && card.querySelector(":scope > .read-more") && !card.querySelector(".post-card-footer, .post-meta")),
       maxCardHeight: Math.max(0, ...cards.map((card) => Math.round(card.getBoundingClientRect().height))),
       emptyDiscoveryHidden: Boolean(document.querySelector(".personal-discovery[hidden]"))
     });
   }, 900))`);
   assert.ok(common.menuOpened && common.themeChanged, "Ortak menü/tema etkileşimi başarısız");
+  assert.ok(common.featuredPreview && common.featuredHeight < 620, `Öne çıkan şiir önizlemesi kartı gereksiz büyütüyor: ${JSON.stringify(common)}`);
   assert.ok(common.compactCards && common.maxCardHeight < 280, `Ana sayfa kartları kompakt değil: ${JSON.stringify(common)}`);
   assert.ok(common.emptyDiscoveryHidden, "İçeriği olmayan kişisel keşif alanı gereksiz boşluk bırakıyor");
 
