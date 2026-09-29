@@ -1072,8 +1072,6 @@ function renderCanvasDialog(post) {
             <button class="canvas-format-button" type="button" data-detail-action="canvas-share-format" data-format="story"><strong>Hikâye</strong><span>1080 × 1920</span></button>
             <button class="canvas-format-button" type="button" data-detail-action="canvas-share-format" data-format="post"><strong>Gönderi</strong><span>1080 × 1350</span></button>
           </div>
-          <label><span>Görseldeki bölüm</span><textarea id="canvasExcerpt" maxlength="5000" rows="9">${escapeHTML(poemCanvasExcerpt(post))}</textarea></label>
-          <p>Metni burada düzenleyebilirsin; asıl yazı değişmez.</p>
           <p class="canvas-share-note">Hikâye veya Gönderi boyutuna dokunduğunda telefonun paylaşım ekranı doğrudan açılır.</p>
         </div>
         <div class="canvas-preview">
@@ -1246,7 +1244,7 @@ function safeFileName(value) {
 function readCanvasShareOptions(formatOverride = "") {
   return {
     format: formatOverride === "story" ? "story" : "post",
-    excerpt: document.getElementById("canvasExcerpt")?.value.trim() || ""
+    excerpt: poemCanvasExcerpt(canvasPost)
   };
 }
 
