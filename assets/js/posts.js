@@ -3,8 +3,10 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   query,
   where,
+  limit,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { app } from "./firebase-config.js";
@@ -14,6 +16,11 @@ import {
   normalizeComparable,
   normalizePosts,
   isPublicPost,
+  storedPostSlug,
+  postMatchesSlug,
+  cleanPostPath,
+  slugifyTitle,
+  uniqueTitleSlug,
   getSortTime,
   readingMinutes,
   uniqueCategories,
@@ -35,7 +42,7 @@ const SITE_URL = "https://hissez.com";
 const SITE_IMAGE = `${SITE_URL}/assets/icons/android-chrome-512x512.png`;
 const FAVORITES_KEY = "hissezFavorites";
 const RECENTS_KEY = "hissezRecentPosts";
-const PUBLIC_POSTS_CACHE_KEY = "hissezPublicPostsV1";
+const PUBLIC_POSTS_CACHE_KEY = "hissezPublicPostsV3";
 const MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 const CANVAS_FORMATS = Object.freeze({
   post: { width: 1080, height: 1350, maxLines: 11 },
@@ -56,6 +63,8 @@ let globalSearchReady = false;
 let readingProgressCleanup = null;
 let scheduledIndex = [];
 let scheduledRefreshVersion = 0;
+let detailLookupStatus = page === "detail" ? "loading" : "idle";
+let listSearchTimer = 0;
 
 const listFilters = (() => {
   const params = new URLSearchParams(location.search);
@@ -64,6 +73,8 @@ const listFilters = (() => {
     category: params.get("category") || "",
     year: params.get("year") || "",
     month: params.get("month") || "",
+    type: params.get("type") || "",
+    sort: params.get("sort") || "newest",
     favorites: params.get("favorites") === "1"
   };
 })();
@@ -97,55 +108,47 @@ function truncate(value = "", max = 145) {
   return text.length > max ? `${text.slice(0, max).trim()}…` : text;
 }
 
-function urlSlug(value = "") {
-  return String(value)
-    .replace(/<[^>]*>/g, " ")
-    .toLocaleLowerCase("tr-TR")
-    .replaceAll("ğ", "g")
-    .replaceAll("ü", "u")
-    .replaceAll("ş", "s")
-    .replaceAll("ı", "i")
-    .replaceAll("ö", "o")
-    .replaceAll("ç", "c")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 120);
-}
-
-function cleanPostSlug(post, posts = currentPosts) {
-  const storedSlug = urlSlug(post?.slug);
-  if (storedSlug) return storedSlug;
-  const base = urlSlug(post?.title || "yazi") || "yazi";
-  const sameTitle = posts.filter((item) => urlSlug(item.title || item.slug || "yazi") === base);
-  if (sameTitle.length <= 1) return base;
-
-  const firstLine = String(post?.content || "").split(/\r?\n/).find((line) => stripText(line)) || "";
-  const lead = urlSlug(firstLine).split("-").filter(Boolean).slice(0, 4).join("-");
-  const descriptive = lead && lead !== base ? `${base}-${lead}`.slice(0, 120).replace(/-$/g, "") : base;
-  const sameDescription = sameTitle.filter((item) => {
-    const itemLine = String(item.content || "").split(/\r?\n/).find((line) => stripText(line)) || "";
-    const itemLead = urlSlug(itemLine).split("-").filter(Boolean).slice(0, 4).join("-");
-    return (itemLead && itemLead !== base ? `${base}-${itemLead}`.slice(0, 120).replace(/-$/g, "") : base) === descriptive;
-  });
-  if (sameDescription.length <= 1) return descriptive;
-  const suffix = urlSlug(post?.id).slice(-6) || "hissez";
-  return `${descriptive}-${suffix}`;
-}
-
-function cleanPostPath(post) {
-  const section = post?.type === "poem" ? "siir" : "gun-notu";
-  return `/${section}/${encodeURIComponent(cleanPostSlug(post))}`;
-}
-
 function cleanPostUrl(post) {
-  return `${SITE_URL}${cleanPostPath(post)}`;
+  const cleanPath = publicPostPath(post);
+  return cleanPath
+    ? `${SITE_URL}${cleanPath}`
+    : `${SITE_URL}/yazi.html?id=${encodeURIComponent(post?.id || "")}`;
 }
 
 function postHref(post) {
-  return cleanPostPath(post);
+  return publicPostPath(post) || `/yazi.html?id=${encodeURIComponent(post?.id || "")}`;
+}
+
+function publicSlugSource(post) {
+  const title = String(post?.title || "").trim();
+  if (post?.type !== "poem" || slugifyTitle(title) !== "his") return title;
+  const firstLine = String(post?.content || "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
+  const slugLine = firstLine.replace(/^her\s+şey\b/iu, "Hersey");
+  return slugLine && slugifyTitle(slugLine) !== "his" ? `${title} ${slugLine}` : title;
+}
+
+function publicTitleSlugMap(posts = currentPosts) {
+  const used = [];
+  const output = new Map();
+  posts.slice().sort((left, right) => {
+    const time = getSortTime(left) - getSortTime(right);
+    return time || String(left.id).localeCompare(String(right.id), "tr");
+  }).forEach((post) => {
+    const slugSource = publicSlugSource(post);
+    const base = slugifyTitle(slugSource) || "yazi";
+    const stored = storedPostSlug(post);
+    const alreadyTitleBased = stored === base || new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-[2-9][0-9]*$`).test(stored);
+    const slug = alreadyTitleBased && !used.includes(stored) ? stored : uniqueTitleSlug(slugSource, used);
+    used.push(slug);
+    output.set(post.id, slug);
+  });
+  return output;
+}
+
+function publicPostPath(post, posts = currentPosts) {
+  const section = post?.type === "poem" ? "siir" : post?.type === "daily" ? "gun-notu" : "";
+  const slug = publicTitleSlugMap(posts).get(post?.id) || slugifyTitle(publicSlugSource(post));
+  return section && slug ? `/${section}/${encodeURIComponent(slug)}` : cleanPostPath(post);
 }
 
 function safeISOString(value) {
@@ -240,6 +243,12 @@ function postExcerpt(post, max = 145) {
   return escapeHTML(truncate(post.excerpt || post.content || "", max));
 }
 
+function postFirstLine(post, max = 130) {
+  const source = String(post.content || post.excerpt || "");
+  const firstLine = source.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
+  return escapeHTML(truncate(firstLine, max));
+}
+
 function renderCard(post) {
   const href = postHref(post);
   const minutes = readingMinutes(post.content);
@@ -253,6 +262,15 @@ function renderCard(post) {
         <p>${postExcerpt(post)}</p>
       </div>
       <div class="post-card-footer"><span>${formatDate(post.date)} · ${minutes} dk okuma</span><a class="read-more" href="${href}">Oku →</a></div>
+    </article>`;
+}
+
+function renderCompactCard(post) {
+  return `
+    <article class="post-card blog-card compact-blog-card">
+      <h3>${escapeHTML(post.title || "Başlıksız Yazı")}</h3>
+      <p>${postFirstLine(post)}</p>
+      <a class="read-more" href="${postHref(post)}">Oku →</a>
     </article>`;
 }
 
@@ -293,7 +311,24 @@ function renderDailyTimeline(post, index = 0) {
 }
 
 function renderEmpty(target, text) {
-  if (target) target.innerHTML = `<div class="empty-state">${escapeHTML(text)}</div>`;
+  if (target) target.innerHTML = `<div class="empty-state"><span class="empty-state-mark" aria-hidden="true">✦</span><strong>Burada henüz bir satır yok.</strong><p>${escapeHTML(text)}</p></div>`;
+}
+
+function renderSkeleton(target, count = 3) {
+  if (!target) return;
+  target.innerHTML = Array.from({ length: count }, () => `
+    <div class="skeleton-card" aria-hidden="true"><span></span><span></span><span></span><span></span></div>`).join("");
+  target.setAttribute("aria-busy", "true");
+}
+
+function renderLoadingSkeletons() {
+  if (page === "home") {
+    renderSkeleton(document.getElementById("featuredPost"), 1);
+    renderSkeleton(document.getElementById("latestPosts"), 3);
+    renderSkeleton(document.getElementById("categoryDiscovery"), 4);
+  }
+  if (page === "list" || page === "archive") renderSkeleton(document.getElementById("postsGrid"), 4);
+  if (page === "detail") renderSkeleton(document.getElementById("postDetail"), 1);
 }
 
 function buildSequenceMap(posts) {
@@ -328,7 +363,7 @@ function renderHome(posts) {
 
   if (latestPosts) {
     latestPosts.innerHTML = posts.length
-      ? posts.slice(0, 6).map(renderCard).join("")
+      ? posts.slice(0, 6).map(renderCompactCard).join("")
       : '<div class="empty-state">Henüz yayında yazı yok.</div>';
   }
 
@@ -348,7 +383,9 @@ function renderHome(posts) {
     }).formatToParts(new Date()).map(({ type, value }) => [type, value]));
     const todaySuffix = `-${parts.month}-${parts.day}`;
     const historyPosts = posts.filter((post) => String(post.date || "").endsWith(todaySuffix) && String(post.date).slice(0, 4) < parts.year).slice(0, 1);
+    const historyWrapper = historySection.closest(".personal-discovery");
     historySection.hidden = historyPosts.length === 0;
+    if (historyWrapper) historyWrapper.hidden = historyPosts.length === 0;
     historyTarget.innerHTML = historyPosts.map(renderCard).join("");
   }
 }
@@ -359,6 +396,8 @@ function syncListUrl() {
   if (listFilters.category) params.set("category", listFilters.category);
   if (listFilters.year) params.set("year", listFilters.year);
   if (listFilters.month) params.set("month", listFilters.month);
+  if (listFilters.type) params.set("type", listFilters.type);
+  if (listFilters.sort && listFilters.sort !== "newest") params.set("sort", listFilters.sort);
   if (listFilters.favorites) params.set("favorites", "1");
   history.replaceState(null, "", `${location.pathname}${params.size ? `?${params}` : ""}${location.hash}`);
 }
@@ -366,6 +405,27 @@ function syncListUrl() {
 function rerenderListing() {
   if (page === "archive") renderArchive(currentPosts);
   else renderList(currentPosts);
+}
+
+function sortListing(posts) {
+  const sorted = posts.slice();
+  if (listFilters.sort === "oldest") return sorted.sort((a, b) => getSortTime(a) - getSortTime(b));
+  if (listFilters.sort === "title") return sorted.sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), "tr"));
+  return sorted.sort((a, b) => getSortTime(b) - getSortTime(a));
+}
+
+function renderActiveFilters() {
+  const target = document.getElementById("activeFilters");
+  if (!target) return;
+  const filters = [
+    ["query", listFilters.query, `Arama: ${listFilters.query}`],
+    ["category", listFilters.category, `Kategori: ${listFilters.category}`],
+    ["type", listFilters.type, listFilters.type === "poem" ? "Tür: Şiir" : "Tür: Gün Notu"],
+    ["date", listFilters.year, `Tarih: ${listFilters.month ? `${MONTHS[Number(listFilters.month) - 1]} ` : ""}${listFilters.year}`],
+    ["favorites", listFilters.favorites, "Favoriler"]
+  ].filter(([, value]) => Boolean(value));
+  target.innerHTML = filters.map(([key, , label]) => `<button type="button" data-list-action="remove-filter" data-filter-key="${key}">${escapeHTML(label)} <span aria-hidden="true">×</span></button>`).join("");
+  target.hidden = filters.length === 0;
 }
 
 function initListTools(typePosts) {
@@ -377,6 +437,8 @@ function initListTools(typePosts) {
       <div class="post-tools-main">
         <label class="post-search"><span class="visually-hidden">Yazılarda ara</span><input id="postSearch" type="search" maxlength="80" autocomplete="off" placeholder="Başlık veya metinde ara…" value="${escapeAttribute(listFilters.query)}"></label>
         <label><span class="visually-hidden">Kategori seç</span><select id="categoryFilter"><option value="">Tüm kategoriler</option></select></label>
+        ${page === "archive" ? '<label><span class="visually-hidden">Tür seç</span><select id="typeListFilter"><option value="">Tüm türler</option><option value="poem">Şiir</option><option value="daily">Gün Notu</option></select></label>' : ""}
+        <label><span class="visually-hidden">Sıralama</span><select id="sortFilter"><option value="newest">En yeni</option><option value="oldest">En eski</option><option value="title">Başlığa göre</option></select></label>
         <button class="btn btn-ghost compact-btn" type="button" data-list-action="random">${page === "archive" ? "Rastgele Yazı" : pageType === "poem" ? "Rastgele Şiir" : "Rastgele Gün Notu"}</button>
         <button class="btn btn-ghost compact-btn" type="button" data-list-action="favorites" aria-pressed="${listFilters.favorites}">♡ Favoriler</button>
       </div>
@@ -384,17 +446,23 @@ function initListTools(typePosts) {
         <details class="archive-menu"><summary>Yıl / Ay Arşivi</summary><div id="archiveOptions" class="archive-options"></div></details>
         <p id="filterSummary" class="filter-summary" aria-live="polite"></p>
         <button class="text-button" type="button" data-list-action="clear">Filtreleri temizle</button>
-      </div>`;
+      </div>
+      <div class="active-filters" id="activeFilters" aria-label="Aktif filtreler" hidden></div>`;
 
     target.addEventListener("input", (event) => {
       if (event.target.id !== "postSearch") return;
-      listFilters.query = event.target.value.trim();
-      syncListUrl();
-      rerenderListing();
+      window.clearTimeout(listSearchTimer);
+      listSearchTimer = window.setTimeout(() => {
+        listFilters.query = event.target.value.trim();
+        syncListUrl();
+        rerenderListing();
+      }, 180);
     });
     target.addEventListener("change", (event) => {
-      if (event.target.id !== "categoryFilter") return;
-      listFilters.category = event.target.value;
+      if (event.target.id === "categoryFilter") listFilters.category = event.target.value;
+      else if (event.target.id === "typeListFilter") listFilters.type = event.target.value;
+      else if (event.target.id === "sortFilter") listFilters.sort = event.target.value;
+      else return;
       syncListUrl();
       rerenderListing();
     });
@@ -408,10 +476,19 @@ function initListTools(typePosts) {
         rerenderListing();
       }
       if (action === "clear") {
-        Object.assign(listFilters, { query: "", category: "", year: "", month: "", favorites: false });
+        Object.assign(listFilters, { query: "", category: "", year: "", month: "", type: "", sort: "newest", favorites: false });
         syncListUrl();
         const search = document.getElementById("postSearch");
         if (search) search.value = "";
+        rerenderListing();
+      }
+      if (action === "remove-filter") {
+        const key = control.dataset.filterKey;
+        if (key === "date") Object.assign(listFilters, { year: "", month: "" });
+        else if (key === "favorites") listFilters.favorites = false;
+        else if (key in listFilters) listFilters[key] = "";
+        if (key === "query") document.getElementById("postSearch").value = "";
+        syncListUrl();
         rerenderListing();
       }
       if (action === "archive") {
@@ -445,13 +522,17 @@ function initListTools(typePosts) {
     listSignature = signature;
   }
   document.getElementById("categoryFilter").value = listFilters.category;
+  const typeFilter = document.getElementById("typeListFilter");
+  if (typeFilter) typeFilter.value = listFilters.type;
+  document.getElementById("sortFilter").value = listFilters.sort;
+  renderActiveFilters();
 }
 
 function renderList(posts) {
   const grid = document.getElementById("postsGrid");
   const typePosts = posts.filter((post) => post.type === pageType);
   initListTools(typePosts);
-  const filtered = filterPosts(typePosts, listFilters, readIdList(FAVORITES_KEY));
+  const filtered = sortListing(filterPosts(typePosts, listFilters, readIdList(FAVORITES_KEY)));
   const favoritesButton = document.querySelector('[data-list-action="favorites"]');
   if (favoritesButton) {
     favoritesButton.setAttribute("aria-pressed", String(listFilters.favorites));
@@ -480,7 +561,7 @@ function renderArchive(posts) {
   if (!grid) return;
   initListTools(posts);
   renderArchiveOverview(posts);
-  const filtered = filterPosts(posts, listFilters, readIdList(FAVORITES_KEY));
+  const filtered = sortListing(filterPosts(posts, listFilters, readIdList(FAVORITES_KEY)));
   const favoritesButton = document.querySelector('[data-list-action="favorites"]');
   if (favoritesButton) {
     favoritesButton.setAttribute("aria-pressed", String(listFilters.favorites));
@@ -510,6 +591,7 @@ function renderArchiveOverview(posts) {
   const categoryLinks = categories.map(({ key, label, count }) => `
     <a href="/arsiv?category=${encodeURIComponent(key)}"${listFilters.category === key ? ' aria-current="true"' : ""}>${escapeHTML(label)} <span>${count}</span></a>`).join("");
   target.innerHTML = `
+    <div class="archive-stats"><div><strong>${posts.length}</strong><span>Toplam yazı</span></div><div><strong>${posts.filter((post) => post.type === "poem").length}</strong><span>Şiir</span></div><div><strong>${posts.filter((post) => post.type === "daily").length}</strong><span>Gün notu</span></div><div><strong>${categories.length}</strong><span>Kategori</span></div></div>
     <div class="archive-overview-block"><p class="eyebrow">Yıllara göre</p><div class="archive-overview-years">${monthGroups || "<p>Arşiv henüz boş.</p>"}</div></div>
     <div class="archive-overview-block"><p class="eyebrow">Kategoriler</p><div class="archive-overview-categories">${categoryLinks || "<p>Henüz kategori yok.</p>"}</div></div>`;
 }
@@ -663,7 +745,7 @@ function renderRelated(posts, post) {
   if (!related.length) return "";
   return `
     <section class="related-posts" aria-labelledby="relatedPostsTitle">
-      <div class="section-heading split"><div><p class="eyebrow">Okumaya devam et</p><h2 id="relatedPostsTitle">İlgili yazılar</h2></div><a class="section-link" href="/arsiv">Arşive git</a></div>
+      <div class="section-heading split"><div><p class="eyebrow">Okumaya devam et</p><h2 id="relatedPostsTitle">Aynı histen kalanlar</h2></div><a class="section-link" href="/arsiv">Arşive git</a></div>
       <div class="post-grid related-post-grid">${related.map(renderCard).join("")}</div>
     </section>`;
 }
@@ -701,26 +783,137 @@ function saveRecent(id) {
   writeIdList(RECENTS_KEY, [id, ...recents], 5);
 }
 
-function requestedPost(posts) {
+function requestedDetailRoute() {
   const params = new URLSearchParams(location.search);
-  const id = params.get("id");
-  if (id) return posts.find((item) => item.id === id);
+  const id = String(params.get("id") || "").trim();
+  if (id) return { id, slug: "", type: "" };
 
-  let slug = params.get("slug") || "";
-  if (!slug) {
-    const pathMatch = location.pathname.match(/^\/(?:siir|gun-notu)\/([^/]+)\/?$/);
-    if (pathMatch) slug = pathMatch[1];
-  }
+  const pathMatch = location.pathname.match(/^\/(siir|gun-notu)\/([^/]+)\/?$/);
+  let slug = pathMatch?.[2] || params.get("slug") || "";
   try { slug = decodeURIComponent(slug); } catch { /* Kodlanmış değer olduğu gibi sınanır. */ }
-  return posts.find((item) => cleanPostSlug(item, posts) === slug || item.slug === slug);
+  const type = pathMatch?.[1] === "siir" ? "poem" : pathMatch?.[1] === "gun-notu" ? "daily" : "";
+  return { id: "", slug, type };
+}
+
+function requestedPost(posts, request = requestedDetailRoute()) {
+  if (request.id) return posts.find((item) => item.id === request.id);
+  if (!request.slug) return undefined;
+  const typePosts = request.type ? posts.filter((item) => item.type === request.type) : posts;
+  const titleSlugs = publicTitleSlugMap(posts);
+  return typePosts.find((item) => titleSlugs.get(item.id) === request.slug)
+    || typePosts.find((item) => storedPostSlug(item) === request.slug)
+    || typePosts.find((item) => postMatchesSlug(item, request.slug))
+    || typePosts.slice().sort((left, right) => getSortTime(left) - getSortTime(right))
+      .find((item) => slugifyTitle(item.title) === request.slug);
+}
+
+function syncCanonicalDetailUrl(post) {
+  const request = requestedDetailRoute();
+  const canonicalPath = publicPostPath(post);
+  if (!canonicalPath) return;
+  const currentPath = location.pathname.replace(/\/+$/, "") || "/";
+  if (request.id) {
+    history.replaceState(null, "", canonicalPath);
+    return;
+  }
+  if (request.slug && currentPath !== canonicalPath) {
+    history.replaceState(null, "", canonicalPath);
+  }
+}
+
+async function resolveRequestedDetail() {
+  if (page !== "detail") return;
+  const request = requestedDetailRoute();
+  const cachedPost = requestedPost(currentPosts, request);
+  if (cachedPost) {
+    detailLookupStatus = "found";
+    syncCanonicalDetailUrl(cachedPost);
+    renderCurrent();
+    return;
+  }
+
+  if ((!request.id && storedPostSlug({ slug: request.slug }) !== request.slug)
+    || (request.id && (request.id.length > 1500 || request.id.includes("/")))) {
+    detailLookupStatus = "not-found";
+    renderCurrent();
+    return;
+  }
+
+  try {
+    let postDocument;
+    if (request.id) {
+      const snapshot = await getDoc(doc(postsCollection, request.id));
+      if (snapshot.exists()) postDocument = { id: snapshot.id, ...snapshot.data() };
+    } else {
+      const exactQuery = request.type
+        ? query(
+          postsCollection,
+          where("slug", "==", request.slug),
+          where("type", "==", request.type),
+          where("status", "==", "published"),
+          limit(1)
+        )
+        : query(
+          postsCollection,
+          where("slug", "==", request.slug),
+          where("status", "==", "published"),
+          limit(1)
+        );
+      const exactSnapshot = await getDocs(exactQuery);
+      let match = exactSnapshot.docs[0];
+      if (!match) {
+        const legacyQuery = request.type
+          ? query(
+            postsCollection,
+            where("legacySlugs", "array-contains", request.slug),
+            where("type", "==", request.type),
+            where("status", "==", "published"),
+            limit(1)
+          )
+          : query(
+            postsCollection,
+            where("legacySlugs", "array-contains", request.slug),
+            where("status", "==", "published"),
+            limit(1)
+          );
+        const legacySnapshot = await getDocs(legacyQuery);
+        match = legacySnapshot.docs[0];
+      }
+      if (match) postDocument = { id: match.id, ...match.data() };
+    }
+
+    if (!postDocument || !isPublicPost(postDocument, Date.now())) {
+      detailLookupStatus = "not-found";
+      renderCurrent();
+      return;
+    }
+
+    if (postDocument.status === "published") publishedValue[postDocument.id] = postDocument;
+    else scheduledValue[postDocument.id] = postDocument;
+    detailLookupStatus = "found";
+    renderCurrent();
+  } catch (error) {
+    detailLookupStatus = request.id && error?.code === "permission-denied" ? "not-found" : "error";
+    renderCurrent();
+    if (detailLookupStatus === "error") console.error("Detay yazısı exact slug sorgusuyla yüklenemedi:", error);
+  }
 }
 
 function renderDetail(posts) {
   const detail = document.getElementById("postDetail");
   detail?.classList.remove("is-poem-detail", "is-daily-detail");
   const post = requestedPost(posts);
-  if (!post) return renderEmpty(detail, "Bu yazı yayında değil ya da kaldırılmış.");
+  if (!post) {
+    const message = detailLookupStatus === "error"
+      ? "Yazı şu anda yüklenemedi. Lütfen tekrar dene."
+      : detailLookupStatus === "not-found"
+        ? "Bu yazı yayında değil ya da kaldırılmış."
+        : "Yazı yükleniyor…";
+    return renderEmpty(detail, message);
+  }
 
+  detailLookupStatus = "found";
+  syncCanonicalDetailUrl(post);
   detail.classList.toggle("is-poem-detail", post.type === "poem");
   detail.classList.toggle("is-daily-detail", post.type === "daily");
   updateDetailSEO(post);
@@ -732,6 +925,7 @@ function renderDetail(posts) {
   const favorite = readIdList(FAVORITES_KEY).includes(post.id);
   const minutes = readingMinutes(post.content);
   const showReadingTime = post.type === "daily" || minutes > 1;
+  const showReadingProgress = showReadingTime || String(post.content || "").split(/\r?\n/).filter((line) => line.trim()).length > 18;
   const shareUrl = cleanPostUrl(post);
   const shareText = `${post.title || "Hissez yazısı"} — Hissez`;
 
@@ -742,18 +936,15 @@ function renderDetail(posts) {
     ${post.excerpt ? `<p class="hero-text">${escapeHTML(post.excerpt)}</p>` : ""}
     <div class="article-utility-actions">
       <button class="btn btn-ghost compact-btn" type="button" data-detail-action="favorite" aria-pressed="${favorite}">${favorite ? "♥ Favorilerde" : "♡ Favorilere Ekle"}</button>
-      ${post.type === "poem" ? `
-        <button class="btn btn-primary compact-btn" type="button" data-detail-action="share">Paylaş</button>
-      ` : `
-        <div class="share-control">
-          <button class="btn btn-ghost compact-btn" type="button" data-detail-action="share" aria-controls="shareFallback" aria-expanded="false">Paylaş</button>
-          <div class="share-fallback" id="shareFallback" hidden>
-            <a href="https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
-            <a href="https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}" target="_blank" rel="noopener noreferrer">X</a>
-            <button type="button" data-detail-action="copy">Linki Kopyala</button>
-          </div>
+      <div class="share-control">
+        <button class="btn btn-primary compact-btn" type="button" data-detail-action="share" aria-controls="shareFallback" aria-expanded="false">Paylaş</button>
+        <div class="share-fallback" id="shareFallback" hidden>
+          <button type="button" data-detail-action="native-share">Telefon paylaşımı</button>
+          <a href="https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+          ${post.type === "poem" ? '<button type="button" data-detail-action="canvas-open">Instagram görseli</button>' : ""}
+          <button type="button" data-detail-action="copy">Linki Kopyala</button>
         </div>
-      `}
+      </div>
     </div>
     <div class="article-body${post.type === "poem" ? " poem-watermarked" : ""}">
       ${post.type === "poem" ? '<span class="poem-watermark" aria-hidden="true"><span>hissez.com</span></span>' : ""}
@@ -767,7 +958,7 @@ function renderDetail(posts) {
     ${post.type === "poem" ? renderCanvasDialog(post) : ""}`;
 
   canvasPost = post.type === "poem" ? post : null;
-  initReadingProgress(post.type === "daily" || minutes > 1);
+  initReadingProgress(showReadingProgress);
   detail.onclick = (event) => handleDetailClick(event, post);
   const dialog = document.getElementById("poemCanvasDialog");
   if (dialog) {
@@ -829,20 +1020,26 @@ async function handleDetailClick(event, post) {
     }
   }
   if (action === "share") {
-    if (post.type === "poem") {
-      await openCanvasDialog();
-      return;
-    }
+    const fallback = document.getElementById("shareFallback");
+    setShareMenuState(fallback?.hidden !== false, button);
+  }
+  if (action === "native-share") {
     if (navigator.share) {
       try {
         await navigator.share({ title: post.title || "Hissez", text: `${post.title || "Hissez yazısı"} — Hissez`, url: canonical });
+        setShareMenuState(false);
         return;
       } catch (error) {
         if (error?.name === "AbortError") return;
       }
     }
-    const fallback = document.getElementById("shareFallback");
-    setShareMenuState(fallback?.hidden !== false, button);
+    await copyText(canonical);
+    setShareMenuState(false);
+    showToast("Paylaşım desteklenmiyor; bağlantı kopyalandı.");
+  }
+  if (action === "canvas-open") {
+    setShareMenuState(false);
+    await openCanvasDialog();
   }
   if (action === "copy") {
     await copyText(canonical);
@@ -1154,6 +1351,7 @@ function renderCurrent() {
   if (page === "list") renderList(currentPosts);
   if (page === "archive") renderArchive(currentPosts);
   if (page === "detail") renderDetail(currentPosts);
+  document.querySelectorAll('[aria-busy="true"]').forEach((target) => target.removeAttribute("aria-busy"));
   const globalInput = document.getElementById("globalSearchInput");
   if (globalInput) renderGlobalSearch(globalInput.value);
 }
@@ -1169,8 +1367,8 @@ function renderLoadError(error) {
     renderEmpty(document.getElementById("postsGrid"), message);
     if (page === "archive") renderEmpty(document.getElementById("archiveOverview"), message);
   }
-  if (page === "detail") renderEmpty(document.getElementById("postDetail"), message);
-  console.error(error);
+  if (page !== "detail") console.error(error);
+  else console.warn("Genel yazı akışı yüklenemedi; detay exact slug sorgusu bekleniyor.", error);
 }
 
 function snapshotToPostValue(snapshot) {
@@ -1236,6 +1434,12 @@ function init() {
     renderCurrent();
   }
 
+  if (page === "detail") resolveRequestedDetail();
+
+  const skeletonTimer = window.setTimeout(() => {
+    if (!publishedRequestSettled && !hasCachedPosts) renderLoadingSkeletons();
+  }, 180);
+
   let publishedRequestSettled = false;
   const loadingTimer = window.setTimeout(() => {
     if (!publishedRequestSettled && !hasCachedPosts) {
@@ -1245,6 +1449,7 @@ function init() {
 
   watchPublishedPosts((error = null) => {
     publishedRequestSettled = true;
+    window.clearTimeout(skeletonTimer);
     window.clearTimeout(loadingTimer);
     if (!error) return;
     if (!hasCachedPosts) renderLoadError(error);

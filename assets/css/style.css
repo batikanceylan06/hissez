@@ -3936,3 +3936,97 @@ html[data-theme="dark"] .global-search-dialog {
     transition: none !important;
   }
 }
+
+/* Yeni işlevleri eski Hissez görsel diliyle uyumlu tutar. */
+.post-tools-main > *,
+.post-tools-main label,
+.post-tools-main .post-search {
+  min-width: 0;
+}
+.active-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.active-filters button {
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  font: 700 .76rem/1.2 Inter, sans-serif;
+  cursor: pointer;
+}
+.archive-stats {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+.archive-stats > div {
+  display: grid;
+  min-width: 0;
+  min-height: 72px;
+  align-content: center;
+  gap: 4px;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-soft);
+}
+.archive-stats strong { display: block; color: var(--primary); font: 800 1.45rem/1 "Playfair Display", serif; }
+.archive-stats span { display: block; color: var(--muted); font-size: .72rem; }
+.archive-overview-block { min-width: 0; }
+.skeleton-card {
+  min-height: 210px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface-soft);
+}
+.skeleton-card span {
+  display: block;
+  width: 88%;
+  height: 12px;
+  margin-bottom: 16px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--surface-deep), var(--surface-solid), var(--surface-deep));
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+.skeleton-card span:nth-child(1) { width: 26%; height: 8px; }
+.skeleton-card span:nth-child(2) { width: 64%; height: 28px; margin-top: 24px; }
+.skeleton-card span:nth-child(4) { width: 72%; }
+@keyframes skeleton-shimmer { to { background-position: -220% 0; } }
+@media (max-width: 640px) {
+  .archive-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-card span { animation: none; }
+}
+
+/* Ana sayfa yazı kartları: başlık, ilk satır ve tek okuma bağlantısı. */
+.compact-blog-card {
+  min-height: 0;
+  gap: 0;
+  padding: clamp(22px, 3vw, 28px) !important;
+}
+
+.compact-blog-card h3 {
+  margin: 0 0 12px;
+}
+
+.compact-blog-card p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.compact-blog-card > .read-more {
+  width: auto;
+  min-height: 0;
+  align-self: flex-start;
+  justify-content: flex-start;
+  margin-top: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}

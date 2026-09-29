@@ -5,9 +5,18 @@ const siteNav = document.querySelector("[data-site-nav]");
 const THEME_KEY = "hissez-theme";
 const TRACK_KEY = "hissez-audio-track";
 const MUTE_KEY = "hissez-audio-muted";
-const PWA_RECOVERY_VERSION = "34";
+const PWA_RECOVERY_VERSION = "40";
 const PWA_RECOVERY_KEY = "hissez-pwa-recovery-version";
 const PWA_RECOVERY_PARAM = "hissez-pwa-reset";
+
+function recoverLocalCleanPostRoute() {
+  if (!/^(?:localhost|127\.0\.0\.1)$/.test(location.hostname) || body.dataset.page !== "home") return false;
+  const match = location.pathname.match(/^\/(siir|gun-notu)\/([^/?#]+)\/?$/);
+  if (!match) return false;
+  const type = match[1] === "siir" ? "poem" : "daily";
+  location.replace(`/yazi.html?slug=${encodeURIComponent(decodeURIComponent(match[2]))}&type=${type}`);
+  return true;
+}
 
 const tracks = [
   { title: "Sessiz Ambiyans", subtitle: "Yumuşak ve düz fon", src: "/assets/audio/hissez-sessiz-ambiyans.ogg?v=2" },
@@ -45,6 +54,7 @@ function initCommon() {
       body.classList.toggle("menu-open", open);
       menuToggle.setAttribute("aria-expanded", String(open));
       menuToggle.setAttribute("aria-label", open ? "Menüyü kapat" : "Menüyü aç");
+      if (open) siteNav.querySelector("a")?.focus();
     };
     menuToggle.addEventListener("click", () => setMenu(!body.classList.contains("menu-open")));
     siteNav.querySelectorAll("a").forEach((link) => {
@@ -199,12 +209,16 @@ function initAudioPlayer() {
   syncState();
 }
 
-initTheme();
-enhanceFooter();
-initCommon();
-initAudioPlayer();
+const localPostRouteRecovered = recoverLocalCleanPostRoute();
 
-if ("serviceWorker" in navigator && location.protocol !== "file:") {
+if (!localPostRouteRecovered) {
+  initTheme();
+  enhanceFooter();
+  initCommon();
+  initAudioPlayer();
+}
+
+if (!localPostRouteRecovered && "serviceWorker" in navigator && location.protocol !== "file:") {
   window.addEventListener("load", async () => {
     const recoveryUrl = new URL(location.href);
     const isRecoveryReload = recoveryUrl.searchParams.get(PWA_RECOVERY_PARAM) === PWA_RECOVERY_VERSION;

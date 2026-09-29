@@ -1,4 +1,4 @@
-const CACHE_NAME = "hissez-public-v34-clean-routes";
+const CACHE_NAME = "hissez-public-v40-archive-layout";
 const NETWORK_TIMEOUT_MS = 4500;
 const CORE_ASSETS = [
   "/",
@@ -12,9 +12,9 @@ const CORE_ASSETS = [
   "/yazi.html",
   "/hakkimda",
   "/hakkimda.html",
-  "/assets/css/style.css",
-  "/assets/js/main.js?v=34",
-  "/assets/js/posts.js?v=34",
+  "/assets/css/style.css?v=40",
+  "/assets/js/main.js?v=40",
+  "/assets/js/posts.js?v=40",
   "/assets/js/post-utils.js",
   "/assets/js/firebase-config.js",
   "/assets/img/hissez-logo.png",

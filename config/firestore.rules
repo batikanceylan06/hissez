@@ -7,6 +7,50 @@ service cloud.firestore {
         && request.auth.token.admin == true;
     }
 
+    function isValidSlug(slug) {
+      return slug is string
+        && slug.size() > 0
+        && slug.size() <= 180
+        && slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$');
+    }
+
+    function hasValidLegacySlugs(data) {
+      return !data.keys().hasAny(['legacySlugs'])
+        || (
+          data.legacySlugs is list
+          && data.legacySlugs.size() <= 10
+          && data.legacySlugs.toSet().size() == data.legacySlugs.size()
+          && !data.legacySlugs.toSet().hasAny([data.slug])
+          && (data.legacySlugs.size() < 1 || isValidSlug(data.legacySlugs[0]))
+          && (data.legacySlugs.size() < 2 || isValidSlug(data.legacySlugs[1]))
+          && (data.legacySlugs.size() < 3 || isValidSlug(data.legacySlugs[2]))
+          && (data.legacySlugs.size() < 4 || isValidSlug(data.legacySlugs[3]))
+          && (data.legacySlugs.size() < 5 || isValidSlug(data.legacySlugs[4]))
+          && (data.legacySlugs.size() < 6 || isValidSlug(data.legacySlugs[5]))
+          && (data.legacySlugs.size() < 7 || isValidSlug(data.legacySlugs[6]))
+          && (data.legacySlugs.size() < 8 || isValidSlug(data.legacySlugs[7]))
+          && (data.legacySlugs.size() < 9 || isValidSlug(data.legacySlugs[8]))
+          && (data.legacySlugs.size() < 10 || isValidSlug(data.legacySlugs[9]))
+        );
+    }
+
+    function preservesLegacyRoutes() {
+      return (
+          !resource.data.keys().hasAny(['legacySlugs'])
+          || (
+            request.resource.data.keys().hasAny(['legacySlugs'])
+            && request.resource.data.legacySlugs.toSet().hasAll(resource.data.legacySlugs)
+          )
+        )
+        && (
+          request.resource.data.slug == resource.data.slug
+          || (
+            request.resource.data.keys().hasAny(['legacySlugs'])
+            && request.resource.data.legacySlugs.toSet().hasAny([resource.data.slug])
+          )
+        );
+    }
+
     function isPublicPost(data) {
       return data.status == 'published'
         || (
@@ -46,6 +90,7 @@ service cloud.firestore {
         && data.keys().hasOnly([
           'title',
           'slug',
+          'legacySlugs',
           'content',
           'type',
           'category',
@@ -62,10 +107,8 @@ service cloud.firestore {
         && data.title is string
         && data.title.size() > 0
         && data.title.size() <= 120
-        && data.slug is string
-        && data.slug.size() > 0
-        && data.slug.size() <= 180
-        && data.slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$')
+        && isValidSlug(data.slug)
+        && hasValidLegacySlugs(data)
         && data.content is string
         && data.content.size() > 0
         && data.content.size() <= 100000
@@ -87,7 +130,10 @@ service cloud.firestore {
 
     match /posts/{postId} {
       allow get, list: if isAdmin() || isPublicPost(resource.data);
-      allow create, update: if isAdmin() && isValidPost(request.resource.data);
+      allow create: if isAdmin() && isValidPost(request.resource.data);
+      allow update: if isAdmin()
+        && isValidPost(request.resource.data)
+        && preservesLegacyRoutes();
       allow delete: if isAdmin();
     }
 

@@ -3,6 +3,8 @@ const TYPE_LABELS = {
   daily: "Gün Notu"
 };
 
+export const MAX_LEGACY_SLUGS = 10;
+
 export function typeLabel(type) {
   return TYPE_LABELS[type] || "Yazı";
 }
@@ -37,6 +39,69 @@ export function getSortTime(post) {
 export function isPublicPost(post, now = Date.now()) {
   if (post?.status === "published") return true;
   return post?.status === "scheduled" && Number(post.publishAt) > 0 && Number(post.publishAt) <= now;
+}
+
+export function isValidPostSlug(value) {
+  const slug = String(value || "").trim();
+  return slug.length > 0 && slug.length <= 180 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+}
+
+export function slugifyTitle(value = "") {
+  return String(value)
+    .toLocaleLowerCase("tr-TR")
+    .replaceAll("ç", "c")
+    .replaceAll("ğ", "g")
+    .replaceAll("ı", "i")
+    .replaceAll("ö", "o")
+    .replaceAll("ş", "s")
+    .replaceAll("ü", "u")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]+/g, " ")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 180)
+    .replace(/-+$/g, "");
+}
+
+export function uniqueTitleSlug(title, reservedSlugs = []) {
+  const base = slugifyTitle(title) || "yazi";
+  const used = new Set(reservedSlugs.map((slug) => String(slug || "").trim()).filter(isValidPostSlug));
+  if (!used.has(base)) return base;
+
+  let number = 2;
+  while (true) {
+    const suffix = `-${number}`;
+    const stem = base.slice(0, 180 - suffix.length).replace(/-+$/g, "") || "yazi";
+    const candidate = `${stem}${suffix}`;
+    if (!used.has(candidate)) return candidate;
+    number += 1;
+  }
+}
+
+export function storedPostSlug(post) {
+  const slug = String(post?.slug || "").trim();
+  return isValidPostSlug(slug) ? slug : "";
+}
+
+export function legacyPostSlugs(post) {
+  if (!Array.isArray(post?.legacySlugs)) return [];
+  return [...new Set(post.legacySlugs.map((slug) => String(slug || "").trim()).filter(isValidPostSlug))];
+}
+
+export function postMatchesSlug(post, requestedSlug, includeLegacy = true) {
+  const slug = String(requestedSlug || "").trim();
+  if (!isValidPostSlug(slug)) return false;
+  if (storedPostSlug(post) === slug) return true;
+  return includeLegacy && legacyPostSlugs(post).includes(slug);
+}
+
+export function cleanPostPath(post) {
+  const slug = storedPostSlug(post);
+  const section = post?.type === "poem" ? "siir" : post?.type === "daily" ? "gun-notu" : "";
+  return slug && section ? `/${section}/${encodeURIComponent(slug)}` : "";
 }
 
 export function normalizePosts(...values) {
@@ -85,6 +150,7 @@ export function categoryCounts(posts, limit = Infinity) {
 export function filterPosts(posts, filters = {}, favoriteIds = []) {
   const query = normalizeComparable(filters.query);
   const category = normalizeComparable(filters.category);
+  const type = normalizeComparable(filters.type);
   const favorites = new Set(favoriteIds);
 
   return posts.filter((post) => {
@@ -98,6 +164,7 @@ export function filterPosts(posts, filters = {}, favoriteIds = []) {
     ].filter(Boolean).join(" "));
 
     if (query && !haystack.includes(query)) return false;
+    if (type && normalizeComparable(post.type) !== type) return false;
     if (category && normalizeComparable(meaningfulCategory(post)) !== category) return false;
     if (filters.year && date.slice(0, 4) !== String(filters.year)) return false;
     if (filters.month && date.slice(5, 7) !== String(filters.month).padStart(2, "0")) return false;

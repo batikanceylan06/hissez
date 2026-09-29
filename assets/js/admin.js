@@ -8,6 +8,13 @@ import {
   writeBatch
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { app } from "./firebase-config.js";
+import {
+  MAX_LEGACY_SLUGS,
+  cleanPostPath,
+  legacyPostSlugs,
+  storedPostSlug,
+  uniqueTitleSlug
+} from "./post-utils.js";
 
 const auth = getAuth(app);
 const firestore = getFirestore(app);
@@ -43,6 +50,7 @@ const editorTitle = document.getElementById("editorTitle");
 const adminPostsList = document.getElementById("adminPostsList");
 const statusFilter = document.getElementById("statusFilter");
 const typeFilter = document.getElementById("typeFilter");
+const adminSearch = document.getElementById("adminSearch");
 const statTotal = document.getElementById("statTotal");
 const statPublished = document.getElementById("statPublished");
 const statDraft = document.getElementById("statDraft");
@@ -163,34 +171,12 @@ function today() {
   return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
 }
 
-function slugify(value = "") {
-  return value
-    .toLocaleLowerCase("tr-TR")
-    .replaceAll("ğ", "g")
-    .replaceAll("ü", "u")
-    .replaceAll("ş", "s")
-    .replaceAll("ı", "i")
-    .replaceAll("ö", "o")
-    .replaceAll("ç", "c")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-") || "yazi";
-}
-
 function uniqueSlug(value, currentId = null) {
-  const base = slugify(value).slice(0, 170);
-  const used = new Set(allPosts.filter((post) => post.id !== currentId).map((post) => post.slug));
-  if (!used.has(base)) return base;
-  let number = 2;
-  while (used.has(`${base}-${number}`)) number += 1;
-  return `${base}-${number}`;
-}
-
-function cleanPostPath(post) {
-  const section = post?.type === "poem" ? "siir" : "gun-notu";
-  const slug = post?.slug || slugify(post?.title || "yazi");
-  return `/${section}/${encodeURIComponent(slug)}`;
+  const reserved = allPosts
+    .filter((post) => post.id !== currentId)
+    .flatMap((post) => [storedPostSlug(post), ...legacyPostSlugs(post)])
+    .filter(Boolean);
+  return uniqueTitleSlug(value, reserved);
 }
 
 function getDateTime(post) {
@@ -315,10 +301,18 @@ function getFormPayload(statusOverride = null) {
   if (status === "scheduled" && !publishAt) throw new Error("Zamanlanmış yazı için geçerli bir Türkiye tarih ve saati seçmelisin.");
 
   const current = editingId.value ? allPosts.find((post) => post.id === editingId.value) : null;
+  const slug = uniqueSlug(title, current?.id);
+  const currentSlug = storedPostSlug(current);
+  const legacySlugs = legacyPostSlugs(current).filter((legacySlug) => legacySlug !== slug);
+  if (currentSlug && currentSlug !== slug && !legacySlugs.includes(currentSlug)) legacySlugs.push(currentSlug);
+  if (legacySlugs.length > MAX_LEGACY_SLUGS) {
+    throw new Error(`Bir yazı en fazla ${MAX_LEGACY_SLUGS} eski URL saklayabilir. Yeni slug oluşturmadan önce migration planını gözden geçir.`);
+  }
 
   const payload = {
     title,
-    slug: current?.slug || uniqueSlug(title, current?.id),
+    slug,
+    legacySlugs,
     content,
     type,
     category: postCategory.value.trim() || typeLabel(type),
@@ -455,10 +449,12 @@ async function deletePost(id) {
 function renderPosts() {
   const selectedStatus = statusFilter.value;
   const selectedType = typeFilter.value;
+  const searchQuery = adminSearch.value.trim().toLocaleLowerCase("tr-TR");
 
   const filtered = allPosts
     .filter((post) => selectedStatus === "all" || post.status === selectedStatus)
-    .filter((post) => selectedType === "all" || post.type === selectedType);
+    .filter((post) => selectedType === "all" || post.type === selectedType)
+    .filter((post) => !searchQuery || [post.title, post.category, post.series].filter(Boolean).join(" ").toLocaleLowerCase("tr-TR").includes(searchQuery));
 
   if (!filtered.length) {
     adminPostsList.innerHTML = `<div class="empty-state">Bu filtreye uygun yazı yok.</div>`;
@@ -468,8 +464,9 @@ function renderPosts() {
   adminPostsList.innerHTML = filtered.map((post) => {
     const publishText = post.status === "published" ? "Yayından Kaldır" : "Yayına Al";
     const isPublic = post.status === "published" || (post.status === "scheduled" && Number(post.publishAt) <= Date.now());
-    const publicLink = isPublic
-      ? `<a class="small-btn" href="${cleanPostPath(post)}" target="_blank" rel="noopener noreferrer">Görüntüle</a>`
+    const publicPath = cleanPostPath(post);
+    const publicLink = isPublic && publicPath
+      ? `<a class="small-btn" href="${publicPath}" target="_blank" rel="noopener noreferrer">Görüntüle</a>`
       : "";
     const safeId = escapeHTML(post.id);
 
@@ -643,6 +640,7 @@ adminPostsList.addEventListener("click", (event) => {
 
 statusFilter.addEventListener("change", renderPosts);
 typeFilter.addEventListener("change", renderPosts);
+adminSearch.addEventListener("input", renderPosts);
 postStatus.addEventListener("change", syncScheduleField);
 
 onAuthStateChanged(auth, async (user) => {

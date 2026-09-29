@@ -3,6 +3,12 @@ import {
   meaningfulCategory,
   normalizeComparable,
   isPublicPost,
+  slugifyTitle,
+  uniqueTitleSlug,
+  storedPostSlug,
+  legacyPostSlugs,
+  postMatchesSlug,
+  cleanPostPath,
   readingMinutes,
   uniqueCategories,
   categoryCounts,
@@ -13,6 +19,7 @@ import {
   relatedPosts,
   firstMeaningfulStanza
 } from "../assets/js/post-utils.js";
+import { buildTitleSlugMigrationPlan } from "./migrate-title-slugs.mjs";
 
 const posts = [
   { id: "p1", type: "poem", title: "İçimde Bahar", content: "Bir şiir", category: " ŞİİR ", date: "2024-03-10", createdAt: 100, status: "published", series: "Mevsimler" },
@@ -58,4 +65,33 @@ assert.equal(readingMinutes("tek iki üç"), 1);
 assert.equal(readingMinutes(Array(201).fill("kelime").join(" ")), 2);
 assert.equal(firstMeaningfulStanza("\n\nİlk kıta\niki satır\n\nİkinci kıta"), "İlk kıta\niki satır");
 
-console.log("Gönderi yardımcıları testleri geçti: kategori, arama, arşiv, favori, komşuluk, seri, zamanlama ve okuma süresi.");
+assert.equal(slugifyTitle("His Senfoni"), "his-senfoni");
+assert.equal(slugifyTitle("  Çünkü Sen... "), "cunku-sen");
+assert.equal(slugifyTitle("Bir Yaz Gecesi!"), "bir-yaz-gecesi");
+assert.equal(slugifyTitle("Aşk & Hayat"), "ask-hayat");
+assert.equal(uniqueTitleSlug("His Senfoni", []), "his-senfoni");
+assert.equal(uniqueTitleSlug("His Senfoni", ["his-senfoni"]), "his-senfoni-2");
+assert.equal(uniqueTitleSlug("His Senfoni", ["his-senfoni", "his-senfoni-2"]), "his-senfoni-3");
+
+const canonicalPoem = { title: "His Senfoni", slug: "his-senfoni", type: "poem", legacySlugs: ["his-mr8g1zwe"] };
+assert.equal(storedPostSlug(canonicalPoem), "his-senfoni");
+assert.deepEqual(legacyPostSlugs(canonicalPoem), ["his-mr8g1zwe"]);
+assert.equal(cleanPostPath(canonicalPoem), "/siir/his-senfoni");
+assert.equal(postMatchesSlug(canonicalPoem, "his-senfoni"), true);
+assert.equal(postMatchesSlug(canonicalPoem, "his-mr8g1zwe"), true);
+assert.equal(postMatchesSlug(canonicalPoem, "baska-slug"), false);
+assert.equal(cleanPostPath({ title: "Başlıktan slug üretme", type: "poem" }), "");
+assert.equal(cleanPostPath({ slug: "gun-notu-1", type: "daily" }), "/gun-notu/gun-notu-1");
+assert.equal(cleanPostPath({ slug: "Geçersiz Slug", type: "poem" }), "");
+
+const migration = buildTitleSlugMigrationPlan([
+  { id: "a", data: { title: "His Senfoni", slug: "his-mr8g1zwe", type: "poem", createdAt: 1 } },
+  { id: "b", data: { title: "His Senfoni", slug: "his-legacy-two", type: "poem", createdAt: 2 } }
+]);
+assert.deepEqual(migration.conflicts, []);
+assert.equal(migration.plan[0].newSlug, "his-senfoni");
+assert.equal(migration.plan[1].newSlug, "his-senfoni-2");
+assert.deepEqual(migration.plan[0].legacySlugs, ["his-mr8g1zwe"]);
+assert.deepEqual(migration.plan[1].legacySlugs, ["his-legacy-two"]);
+
+console.log("Gönderi yardımcıları testleri geçti: title slug, deterministic duplicate, legacy URL, migration planı, kategori, arama, arşiv ve zamanlama.");

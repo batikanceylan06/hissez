@@ -38,6 +38,12 @@ for (const file of htmlFiles) {
   }
 }
 
+for (const file of ["index.html", "siirler.html", "gun-notlari.html", "arsiv.html", "hakkimda.html"]) {
+  const html = readFileSync(resolve(root, file), "utf8");
+  assert.equal((html.match(/<h1\b/g) || []).length, 1, `${file}: public sayfada tam bir H1 olmalı`);
+}
+assert.ok(readFileSync(resolve(root, "yazi.html"), "utf8").includes('id="postDetail"'), "Detay sayfası dinamik H1 kapsayıcısını içermiyor");
+
 const panel = readFileSync(resolve(root, "sezin-panel.html"), "utf8");
 for (const requiredId of ["postPublishAt", "postSeries", "postAuthorNote", "statScheduled"]) {
   assert.ok(panel.includes(`id="${requiredId}"`), `Panel alanı eksik: ${requiredId}`);
@@ -62,7 +68,7 @@ for (const resilienceToken of ["NETWORK_TIMEOUT_MS", "AbortController", "ignoreS
   assert.ok(sw.includes(resilienceToken), `PWA dayanıklılık özelliği eksik: ${resilienceToken}`);
 }
 for (const safariRecoveryToken of [
-  'hissez-public-v34-clean-routes',
+  'hissez-public-v40-archive-layout',
   'key.startsWith("hissez-")',
   "await self.skipWaiting()",
   "await self.clients.claim()"
@@ -71,8 +77,14 @@ for (const safariRecoveryToken of [
 }
 
 const main = readFileSync(resolve(root, "assets/js/main.js"), "utf8");
+for (const editorialUiToken of [
+  'menuToggle.setAttribute("aria-controls", siteNav.id)',
+  'menuToggle.setAttribute("aria-expanded", "false")'
+]) {
+  assert.ok(main.includes(editorialUiToken), `Editorial ortak UI davranışı eksik: ${editorialUiToken}`);
+}
 for (const recoveryToken of [
-  'const PWA_RECOVERY_VERSION = "34"',
+  'const PWA_RECOVERY_VERSION = "40"',
   'name.startsWith("hissez-")',
   "registration.unregister()",
   "caches.delete(name)",
@@ -82,10 +94,11 @@ for (const recoveryToken of [
 }
 for (const file of htmlFiles.filter((file) => file !== "sezin-panel.html")) {
   const html = readFileSync(resolve(root, file), "utf8");
-  assert.ok(html.includes('assets/js/main.js?v=34'), `${file}: sürümlü main.js bağlantısı eksik`);
-  assert.ok(html.includes('assets/js/posts.js?v=34'), `${file}: sürümlü posts.js bağlantısı eksik`);
+  assert.ok(html.includes('assets/css/style.css?v=40'), `${file}: sürümlü style.css bağlantısı eksik`);
+  assert.ok(html.includes('assets/js/main.js?v=40'), `${file}: sürümlü main.js bağlantısı eksik`);
+  assert.ok(html.includes('assets/js/posts.js?v=40'), `${file}: sürümlü posts.js bağlantısı eksik`);
 }
-assert.ok(panel.includes('assets/js/admin.js?v=34'), "Panel sürümlü admin.js bağlantısı eksik");
+assert.ok(panel.includes('assets/js/admin.js?v=40'), "Panel sürümlü admin.js bağlantısı eksik");
 
 assert.doesNotMatch(csp, /\*/, "CSP wildcard içeriyor");
 assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval/, "CSP unsafe-inline/unsafe-eval içeriyor");
@@ -102,9 +115,29 @@ for (const cspToken of [
 }
 
 const posts = readFileSync(resolve(root, "assets/js/posts.js"), "utf8");
-assert.ok(posts.includes('const PUBLIC_POSTS_CACHE_KEY = "hissezPublicPostsV1"'), "Public yazı offline cache'i eksik");
+const postUtils = readFileSync(resolve(root, "assets/js/post-utils.js"), "utf8");
+for (const loadingUiToken of ["function renderSkeleton(", "function renderLoadingSkeletons(", 'class="empty-state-mark"', 'id="activeFilters"']) {
+  assert.ok(posts.includes(loadingUiToken), `Skeleton/empty/filter regresyon koruması eksik: ${loadingUiToken}`);
+}
+assert.ok(postUtils.includes("filters.type"), "Arşiv tür filtresi ortak filtre katmanında değil");
+assert.ok(posts.includes('const PUBLIC_POSTS_CACHE_KEY = "hissezPublicPostsV3"'), "Public yazı offline cache'i sürümlenmedi");
 assert.ok(posts.includes("firebase-firestore.js"), "Public yazılar Firestore SDK kullanmıyor");
 assert.ok(posts.includes('where("status", "==", "published")'), "Published Firestore sorgusu eksik");
+for (const exactDetailToken of [
+  'where("slug", "==", request.slug)',
+  'where("legacySlugs", "array-contains", request.slug)',
+  'where("type", "==", request.type)',
+  'where("status", "==", "published")',
+  "limit(1)",
+  "await getDocs(exactQuery)",
+  "await getDocs(legacyQuery)",
+  'detailLookupStatus = "not-found"',
+  'detailLookupStatus = request.id && error?.code === "permission-denied" ? "not-found" : "error"',
+  '"Yazı şu anda yüklenemedi. Lütfen tekrar dene."',
+  '"Bu yazı yayında değil ya da kaldırılmış."'
+]) {
+  assert.ok(posts.includes(exactDetailToken), `Detay exact slug yükleme davranışı eksik: ${exactDetailToken}`);
+}
 assert.ok(posts.includes('collection(firestore, "postSchedule")'), "Scheduled metadata collection eksik");
 assert.ok(posts.includes("getDoc(doc(postsCollection, id))"), "Due scheduled tekil okuması eksik");
 assert.doesNotMatch(posts, /database|server.*offset|clock.*db/i, "Public runtime Firestore dışında bir database bağımlılığı içeriyor");
@@ -115,8 +148,11 @@ for (const firestoreAdminToken of ["onSnapshot(postsCollection", "doc(postsColle
   assert.ok(admin.includes(firestoreAdminToken), `Admin Firestore özelliği eksik: ${firestoreAdminToken}`);
 }
 assert.doesNotMatch(admin, /database/i, "Admin runtime Firestore dışında bir database bağımlılığı içeriyor");
-assert.ok(admin.includes("function cleanPostPath(post)"), "Admin temiz post yolu eksik");
-assert.ok(admin.includes('href="${cleanPostPath(post)}"'), "Admin görüntüleme linki temiz değil");
+assert.ok(admin.includes("uniqueTitleSlug"), "Admin ortak title slug yardımcısını kullanmıyor");
+assert.ok(admin.includes("legacyPostSlugs"), "Admin legacy slug geçmişini kullanmıyor");
+assert.ok(admin.includes('href="${publicPath}"'), "Admin görüntüleme linki stored slug yolunu kullanmıyor");
+assert.ok(admin.includes("const slug = uniqueSlug(title, current?.id)"), "Admin edit sırasında title slug üretmiyor");
+assert.ok(admin.includes("legacySlugs.push(currentSlug)"), "Admin eski slug'ı legacySlugs içine taşımıyor");
 assert.ok(admin.includes("return tokenResult.claims.admin === true"), "Admin paneli yalnızca custom claim ile yetkilendirmiyor");
 assert.doesNotMatch(admin, /localStorage\.(?:getItem|setItem)\([^)]*(?:auth|token|session)/i, "Admin session/token localStorage'a yazılıyor");
 assert.ok(admin.includes('"auth/invalid-credential", "auth/user-not-found", "auth/invalid-email", "auth/wrong-password"'), "Auth hata mesajları hesap enumeration riskini azaltmıyor");
@@ -125,6 +161,8 @@ assert.doesNotMatch(admin, /Bu e-posta için kullanıcı bulunamadı|Şifre hata
 for (const cleanNavigation of ['href="/"', 'href="/siirler"', 'href="/gun-notlari"', 'href="/arsiv"', 'href="/hakkimda"', 'src: "/assets/audio/']) {
   assert.ok(main.includes(cleanNavigation), `Main temiz navigasyon/asset eksik: ${cleanNavigation}`);
 }
+assert.ok(main.includes("function recoverLocalCleanPostRoute()"), "Yerel clean post route fallback'i eksik");
+assert.ok(main.includes('location.replace(`/yazi.html?slug='), "Yerel clean post route detay sayfasına yönlenmiyor");
 for (const source of [posts, admin, main]) {
   assert.doesNotMatch(source, /(?:href|src)\s*[:=]\s*["'`]?(?:index|siirler|gun-notlari|arsiv|hakkimda|sezin-panel)\.html/, "JS içinde kullanıcı-facing .html yolu kaldı");
 }
@@ -132,7 +170,8 @@ for (const source of [posts, admin, main]) {
 for (const requiredFile of [
   "config/firestore.rules",
   "config/firestore.indexes.json",
-  "scripts/test-firestore-rules.mjs"
+  "scripts/test-firestore-rules.mjs",
+  "scripts/migrate-title-slugs.mjs"
 ]) {
   assert.ok(existsSync(resolve(root, requiredFile)), `Firestore dosyası eksik: ${requiredFile}`);
 }
@@ -157,6 +196,7 @@ const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8
 assert.equal(packageJson.scripts["test:rules"], "npm run test:rules:firestore", "Rules testi Firestore-only değil");
 assert.deepEqual(Object.keys(packageJson.scripts).sort(), [
   "test",
+  "test:browser",
   "test:rules",
   "test:rules:firestore",
   "test:static",
@@ -164,9 +204,13 @@ assert.deepEqual(Object.keys(packageJson.scripts).sort(), [
 ].sort(), "Package içinde eski database/migration komutu kaldı");
 
 const firestoreRules = readFileSync(resolve(root, "config/firestore.rules"), "utf8");
+const firestoreIndexes = JSON.parse(readFileSync(resolve(root, "config/firestore.indexes.json"), "utf8"));
+assert.ok(firestoreIndexes.indexes.some((index) => index.fields.some((field) => field.fieldPath === "legacySlugs" && field.arrayConfig === "CONTAINS")), "legacySlugs array-contains composite index'i eksik");
 for (const rulesToken of [
   "rules_version = '2'",
   "allow get, list: if isAdmin() || isPublicPost(resource.data)",
+  "function preservesLegacyRoutes()",
+  "hasValidLegacySlugs(data)",
   "match /postSchedule/{postId}",
   "allow read, write: if false"
 ]) {
@@ -180,6 +224,10 @@ for (const claimToken of ["applicationDefault()", "getUserByEmail", "setCustomUs
 }
 assert.doesNotMatch(claimScript, /service-account\.json|private_key|localStorage/i, "Admin claim script içinde secret/token saklama kalıbı var");
 assert.ok(existsSync(resolve(root, "docs/security.md")), "Güvenlik dokümantasyonu eksik");
+const migrationScript = readFileSync(resolve(root, "scripts/migrate-title-slugs.mjs"), "utf8");
+for (const migrationToken of ["DRY RUN (yazma yok)", 'args.includes("--apply")', "legacySlugs", "uniqueTitleSlug", "batch.update"]) {
+  assert.ok(migrationScript.includes(migrationToken), `Title slug migration güvenliği eksik: ${migrationToken}`);
+}
 
 const runtimeSources = [main, posts, admin];
 for (const dangerousToken of [["insert", "AdjacentHTML"].join(""), ["document", ".write"].join(""), ["new", " Function"].join(""), ["eval", "("].join("")]) {
@@ -215,9 +263,20 @@ for (const requiredShareToken of [
 assert.ok(!posts.includes('data-detail-action="canvas-share-target"'), "Eski uygulama bazlı paylaşım düğmeleri hâlâ mevcut");
 assert.ok(!posts.includes('data-detail-action="canvas-download"'), "Ayrı görsel indirme düğmesi hâlâ mevcut");
 
+assert.ok(postUtils.includes("export function storedPostSlug(post)"), "Stored slug doğrulayıcısı eksik");
+assert.ok(postUtils.includes("export function slugifyTitle(value"), "Title slug üreticisi eksik");
+assert.ok(postUtils.includes("export function uniqueTitleSlug(title"), "Deterministic duplicate slug üreticisi eksik");
+assert.ok(postUtils.includes("export function postMatchesSlug(post"), "Legacy slug eşleştiricisi eksik");
+assert.ok(postUtils.includes("export function cleanPostPath(post)"), "Ortak canonical yol yardımcısı eksik");
+assert.ok(postUtils.includes('return slug && section ? `/${section}/${encodeURIComponent(slug)}` : ""'), "Canonical yol stored slug dışına düşüyor");
+for (const titleRouteToken of ["function publicSlugSource(post)", "function publicTitleSlugMap(posts", "function publicPostPath(post", 'replace(/^her\\s+şey\\b/iu, "Hersey")']) {
+  assert.ok(posts.includes(titleRouteToken), `Başlık/ilk dize tabanlı public URL eksik: ${titleRouteToken}`);
+}
 for (const cleanUrlToken of [
-  'return `/${section}/${encodeURIComponent(cleanPostSlug(post))}`',
-  'location.pathname.match(/^\\/(?:siir|gun-notu)',
+  'location.pathname.match(/^\\/(siir|gun-notu)',
+  "const canonicalPath = publicPostPath(post);",
+  "currentPath !== canonicalPath",
+  'history.replaceState(null, "", canonicalPath);',
   'const canonical = cleanPostUrl(post)'
 ]) {
   assert.ok(posts.includes(cleanUrlToken), `Temiz yazı adresi özelliği eksik: ${cleanUrlToken}`);
@@ -243,6 +302,8 @@ for (const requiredBlogToken of [
   "function initGlobalSearch()",
   "function renderRelated(posts, post)",
   "function initReadingProgress(enabled)",
+  "function renderCompactCard(post)",
+  "function postFirstLine(post, max = 130)",
   'href="/arsiv?category=',
   "posts.slice(0, 6)"
 ]) {
@@ -253,6 +314,8 @@ const index = readFileSync(resolve(root, "index.html"), "utf8");
 assert.ok(index.includes('id="latestPosts"'), "Ana sayfa kronolojik yazı akışı eksik");
 assert.ok(index.includes('id="categoryDiscovery"'), "Ana sayfa kategori keşfi eksik");
 assert.ok(!index.includes("Yarım kalan sayfalar"), "Kaldırılan yarım kalan sayfalar alanı hâlâ mevcut");
+assert.ok(!index.includes("author-mini-section"), "Kaldırılan ana sayfa yazar tanıtım alanı hâlâ mevcut");
+assert.ok(index.includes('class="section personal-discovery" aria-label="Kişisel keşif alanı" hidden'), "Boş kişisel keşif alanı başlangıçta gizlenmiyor");
 assert.ok(index.includes("https://www.instagram.com/hissezz"), "Ana sayfa Instagram bağlantısı eksik");
 
 const about = readFileSync(resolve(root, "hakkimda.html"), "utf8");
