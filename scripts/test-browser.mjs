@@ -158,12 +158,14 @@ try {
   const detail = await evaluate(sessionId, `new Promise((resolve) => setTimeout(async () => {
     document.querySelector('[data-detail-action="share"]')?.click();
     const fallback = document.getElementById("shareFallback");
+    const shareChoices = [...fallback?.querySelectorAll(":scope > button") || []];
     document.querySelector('[data-detail-action="canvas-open"]')?.click();
     await new Promise((done) => setTimeout(done, 180));
     const relatedCards = [...document.querySelectorAll(".related-post-grid .compact-blog-card")];
-    resolve({ progress: Boolean(document.querySelector(".reading-progress")), whatsapp: Boolean(fallback?.querySelector('a[href^="https://wa.me/"]')), canvas: Boolean(document.getElementById("poemCanvasDialog")?.open), canvasWidth: document.getElementById("poemCanvas")?.width || 0, relatedCompact: relatedCards.length > 0 && relatedCards.every((card) => card.getBoundingClientRect().height < 280) });
+    const formats = [...document.querySelectorAll('[data-detail-action="canvas-share-format"]')].map((button) => button.dataset.format).sort();
+    resolve({ progress: Boolean(document.querySelector(".reading-progress")), shareChoices: shareChoices.map((button) => button.textContent.trim()), duplicateInstagram: fallback?.textContent.includes("Instagram"), canvas: Boolean(document.getElementById("poemCanvasDialog")?.open), canvasWidth: document.getElementById("poemCanvas")?.width || 0, formats, relatedCompact: relatedCards.length > 0 && relatedCards.every((card) => card.getBoundingClientRect().height < 280) });
   }, 1200))`);
-  assert.ok(detail.progress && detail.whatsapp && detail.canvas && detail.canvasWidth === 1080 && detail.relatedCompact, `Detay/paylaşım/Canvas etkileşimi başarısız: ${JSON.stringify(detail)}`);
+  assert.ok(detail.progress && detail.shareChoices.length === 2 && detail.shareChoices.some((value) => value.includes("Görsel")) && detail.shareChoices.some((value) => value.includes("Link")) && !detail.duplicateInstagram && detail.canvas && detail.canvasWidth === 1080 && JSON.stringify(detail.formats) === JSON.stringify(["post", "story"]) && detail.relatedCompact, `Detay/paylaşım/Canvas etkileşimi başarısız: ${JSON.stringify(detail)}`);
 
   await command("Page.navigate", { url: `${baseUrl}/siir/his-hersey-sende-gizli` }, sessionId);
   await new Promise((resolve) => setTimeout(resolve, 1600));

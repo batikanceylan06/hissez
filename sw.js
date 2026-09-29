@@ -1,4 +1,4 @@
-const CACHE_NAME = "hissez-public-v42-poem-lines-social-icons";
+const CACHE_NAME = "hissez-public-v43-share-flow";
 const NETWORK_TIMEOUT_MS = 4500;
 const CORE_ASSETS = [
   "/",
@@ -12,9 +12,9 @@ const CORE_ASSETS = [
   "/yazi.html",
   "/hakkimda",
   "/hakkimda.html",
-  "/assets/css/style.css?v=42",
-  "/assets/js/main.js?v=42",
-  "/assets/js/posts.js?v=42",
+  "/assets/css/style.css?v=43",
+  "/assets/js/main.js?v=43",
+  "/assets/js/posts.js?v=43",
   "/assets/js/post-utils.js",
   "/assets/js/firebase-config.js",
   "/assets/img/hissez-logo.png",

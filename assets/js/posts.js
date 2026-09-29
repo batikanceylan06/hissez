@@ -935,9 +935,6 @@ function renderDetail(posts) {
   const minutes = readingMinutes(post.content);
   const showReadingTime = post.type === "daily" || minutes > 1;
   const showReadingProgress = showReadingTime || String(post.content || "").split(/\r?\n/).filter((line) => line.trim()).length > 18;
-  const shareUrl = cleanPostUrl(post);
-  const shareText = `${post.title || "Hissez yazısı"} — Hissez`;
-
   detail.innerHTML = `
     ${post.type === "daily" ? `<nav class="detail-breadcrumb" aria-label="İçerik yolu"><a href="/">Ana Sayfa</a><span aria-hidden="true">/</span><a href="/gun-notlari">Gün Notları</a><span aria-hidden="true">/</span><span aria-current="page">${escapeHTML(post.title || "Yazı")}</span></nav>` : ""}
     <div class="post-meta"><span>${typeLabel(post.type)}</span><span>${formatDate(post.date)}</span>${categoryChip(post)}${showReadingTime ? `<span>${minutes} dk okuma</span>` : ""}</div>
@@ -948,10 +945,8 @@ function renderDetail(posts) {
       <div class="share-control">
         <button class="btn btn-primary compact-btn" type="button" data-detail-action="share" aria-controls="shareFallback" aria-expanded="false">Paylaş</button>
         <div class="share-fallback" id="shareFallback" hidden>
-          <button type="button" data-detail-action="native-share">Telefon paylaşımı</button>
-          <a href="https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
-          ${post.type === "poem" ? '<button type="button" data-detail-action="canvas-open">Instagram görseli</button>' : ""}
-          <button type="button" data-detail-action="copy">Linki Kopyala</button>
+          ${post.type === "poem" ? '<button type="button" data-detail-action="canvas-open"><span aria-hidden="true">▧</span> Görsel</button>' : ""}
+          <button type="button" data-detail-action="share-link"><span aria-hidden="true">↗</span> Link</button>
         </div>
       </div>
     </div>
@@ -1032,7 +1027,7 @@ async function handleDetailClick(event, post) {
     const fallback = document.getElementById("shareFallback");
     setShareMenuState(fallback?.hidden !== false, button);
   }
-  if (action === "native-share") {
+  if (action === "share-link") {
     if (navigator.share) {
       try {
         await navigator.share({ title: post.title || "Hissez", text: `${post.title || "Hissez yazısı"} — Hissez`, url: canonical });
@@ -1050,11 +1045,6 @@ async function handleDetailClick(event, post) {
     setShareMenuState(false);
     await openCanvasDialog();
   }
-  if (action === "copy") {
-    await copyText(canonical);
-    setShareMenuState(false);
-    showToast("Bağlantı kopyalandı.");
-  }
   if (action === "canvas-close") document.getElementById("poemCanvasDialog")?.close();
   if (action === "canvas-page-prev") {
     canvasPreviewPage = Math.max(0, canvasPreviewPage - 1);
@@ -1064,7 +1054,11 @@ async function handleDetailClick(event, post) {
     canvasPreviewPage += 1;
     await drawPoemCanvas();
   }
-  if (action === "canvas-share") await runBusyAction(button, () => sharePoemImage(post, readCanvasShareOptions()));
+  if (action === "canvas-share-format") {
+    const format = button.dataset.format === "story" ? "story" : "post";
+    document.getElementById("poemCanvasDialog")?.close();
+    await runBusyAction(button, () => sharePoemImage(post, readCanvasShareOptions(format)));
+  }
 }
 
 function renderCanvasDialog(post) {
@@ -1073,13 +1067,14 @@ function renderCanvasDialog(post) {
       <div class="dialog-head"><div><p class="eyebrow">Şiir kartı</p><h2 id="poemCanvasTitle">Şiiri Paylaş</h2></div><button class="dialog-close" type="button" data-detail-action="canvas-close" aria-label="Pencereyi kapat">×</button></div>
       <div class="canvas-dialog-grid">
         <div class="canvas-controls">
-          <label><span>Boyut</span><select id="canvasFormat"><option value="post">1080 × 1350 · Gönderi</option><option value="story">1080 × 1920 · Hikâye</option></select></label>
+          <div class="canvas-format-picker" role="group" aria-label="Görsel boyutunu seç">
+            <p>Boyutu seç</p>
+            <button class="canvas-format-button" type="button" data-detail-action="canvas-share-format" data-format="story"><strong>Hikâye</strong><span>1080 × 1920</span></button>
+            <button class="canvas-format-button" type="button" data-detail-action="canvas-share-format" data-format="post"><strong>Gönderi</strong><span>1080 × 1350</span></button>
+          </div>
           <label><span>Görseldeki bölüm</span><textarea id="canvasExcerpt" maxlength="5000" rows="9">${escapeHTML(poemCanvasExcerpt(post))}</textarea></label>
           <p>Metni burada düzenleyebilirsin; asıl yazı değişmez.</p>
-          <div class="canvas-actions poem-share-actions">
-            <button class="btn btn-primary" type="button" data-detail-action="canvas-share">Paylaş</button>
-          </div>
-          <p class="canvas-share-note">Telefonda paylaşım ekranı açılır. Tarayıcı görsel paylaşımını desteklemiyorsa dosyalar otomatik indirilir.</p>
+          <p class="canvas-share-note">Hikâye veya Gönderi boyutuna dokunduğunda telefonun paylaşım ekranı doğrudan açılır.</p>
         </div>
         <div class="canvas-preview">
           <div class="canvas-page-nav" id="canvasPageNav" hidden>
@@ -1098,7 +1093,7 @@ async function openCanvasDialog() {
   if (!dialog) return;
   dialog.showModal();
   canvasPreviewPage = 0;
-  dialog.querySelector("select")?.focus();
+  dialog.querySelector(".canvas-format-button")?.focus();
   await drawPoemCanvas();
 }
 
@@ -1248,9 +1243,9 @@ function safeFileName(value) {
   return normalizeComparable(value).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "hissez-siir";
 }
 
-function readCanvasShareOptions() {
+function readCanvasShareOptions(formatOverride = "") {
   return {
-    format: document.getElementById("canvasFormat")?.value || "post",
+    format: formatOverride === "story" ? "story" : "post",
     excerpt: document.getElementById("canvasExcerpt")?.value.trim() || ""
   };
 }

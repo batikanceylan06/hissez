@@ -428,6 +428,46 @@
   gap: 18px;
 }
 
+.canvas-format-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.canvas-format-picker > p {
+  grid-column: 1 / -1;
+  color: var(--text-strong);
+  font-weight: 800;
+}
+
+.canvas-format-button {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 15px 12px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  color: var(--text);
+  background: var(--surface-soft);
+  text-align: left;
+  cursor: pointer;
+}
+
+.canvas-format-button:hover,
+.canvas-format-button:focus-visible {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.canvas-format-button strong {
+  color: var(--primary);
+}
+
+.canvas-format-button span {
+  color: var(--muted);
+  font-size: .78rem;
+}
+
 .canvas-controls label {
   display: grid;
   gap: 8px;
