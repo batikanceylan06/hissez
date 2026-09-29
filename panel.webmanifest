@@ -1,7 +1,7 @@
 {
   "name": "Hissez Panel",
   "short_name": "Panel",
-  "start_url": "/sezin-panel.html",
+  "start_url": "/sezin-panel",
   "display": "standalone",
   "background_color": "#fff8f6",
   "theme_color": "#89193d",

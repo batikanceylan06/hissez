@@ -1,7 +1,7 @@
 {
   "name": "Hissez",
   "short_name": "Hissez",
-  "start_url": "/index.html",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#fff8f6",
   "theme_color": "#89193d",

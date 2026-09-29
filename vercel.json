@@ -1,5 +1,18 @@
 {
+  "redirects": [
+    { "source": "/index.html", "destination": "/", "permanent": true },
+    { "source": "/siirler.html", "destination": "/siirler", "permanent": true },
+    { "source": "/gun-notlari.html", "destination": "/gun-notlari", "permanent": true },
+    { "source": "/arsiv.html", "destination": "/arsiv", "permanent": true },
+    { "source": "/hakkimda.html", "destination": "/hakkimda", "permanent": true },
+    { "source": "/sezin-panel.html", "destination": "/sezin-panel", "permanent": true }
+  ],
   "rewrites": [
+    { "source": "/siirler", "destination": "/siirler.html" },
+    { "source": "/gun-notlari", "destination": "/gun-notlari.html" },
+    { "source": "/arsiv", "destination": "/arsiv.html" },
+    { "source": "/hakkimda", "destination": "/hakkimda.html" },
+    { "source": "/sezin-panel", "destination": "/sezin-panel.html" },
     {
       "source": "/siir/:slug",
       "destination": "/yazi.html?slug=:slug"
@@ -27,7 +40,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-36Xeyxi6MNaO2Vx9Dm9YCjYek10dU/HTLrRq4cWdhic=' 'sha256-HBHi9P4jzrERVl8rX/gLT6X+nWRYJqXvZCvcF1TJNEw=' 'sha256-bzkPMpPE0kV0Ah1bbyW1S31017VzisEy/b7mLcCj9BY=' https://www.gstatic.com; script-src-attr 'none'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; media-src 'self'; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://*.firebaseapp.com; frame-src https://hissez.firebaseapp.com; worker-src 'self'; manifest-src 'self'; upgrade-insecure-requests"
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-obN5zNFls1wcSUzgj4j1VTyPgctuVYZsIP4E/ie5G2M=' 'sha256-V1eqijWdsk1epBpIP/VVTFKIxHzQbqxECQfGBF3fck4=' 'sha256-MQxMEIAikV+azOaSygPNAYnoYYmbOEXhR2lv8bXaWgo=' https://www.gstatic.com https://www.google.com/recaptcha/; script-src-attr 'none'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; media-src 'self'; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://content-firebaseappcheck.googleapis.com https://www.google.com; frame-src https://hissez.firebaseapp.com https://www.google.com/recaptcha/; worker-src 'self'; manifest-src 'self'; upgrade-insecure-requests"
         },
         {
           "key": "X-Frame-Options",
@@ -41,6 +54,19 @@
     },
     {
       "source": "/sezin-panel.html",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/sezin-panel",
       "headers": [
         {
           "key": "X-Robots-Tag",

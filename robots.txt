@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /sezin-panel.html
+Disallow: /sezin-panel
 Disallow: /panel.webmanifest
 
 Sitemap: https://hissez.com/sitemap.xml

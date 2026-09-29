@@ -1,15 +1,12 @@
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, getIdTokenResult } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, getIdTokenResult } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   getFirestore,
   collection,
   doc,
-  query,
-  limit,
-  getDocs,
   onSnapshot,
   deleteField,
   writeBatch
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { app } from "./firebase-config.js";
 
 const auth = getAuth(app);
@@ -148,17 +145,9 @@ async function hasAdminAccess(user) {
 
   try {
     const tokenResult = await getIdTokenResult(user, true);
-    if (tokenResult.claims.admin === true) return true;
+    return tokenResult.claims.admin === true;
   } catch (error) {
     console.warn("Admin yetki bilgisi yenilenemedi:", error);
-  }
-
-  // Custom Claim kurulana kadar mevcut yöneticileri kilitlememek için yetkiyi
-  // istemcideki bir e-posta listesinden değil, Firestore Rules üzerinden sınar.
-  try {
-    await getDocs(query(postsCollection, limit(1)));
-    return true;
-  } catch {
     return false;
   }
 }
@@ -196,6 +185,12 @@ function uniqueSlug(value, currentId = null) {
   let number = 2;
   while (used.has(`${base}-${number}`)) number += 1;
   return `${base}-${number}`;
+}
+
+function cleanPostPath(post) {
+  const section = post?.type === "poem" ? "siir" : "gun-notu";
+  const slug = post?.slug || slugify(post?.title || "yazi");
+  return `/${section}/${encodeURIComponent(slug)}`;
 }
 
 function getDateTime(post) {
@@ -474,7 +469,7 @@ function renderPosts() {
     const publishText = post.status === "published" ? "Yayından Kaldır" : "Yayına Al";
     const isPublic = post.status === "published" || (post.status === "scheduled" && Number(post.publishAt) <= Date.now());
     const publicLink = isPublic
-      ? `<a class="small-btn" href="yazi.html?id=${encodeURIComponent(post.id)}" target="_blank" rel="noopener noreferrer">Görüntüle</a>`
+      ? `<a class="small-btn" href="${cleanPostPath(post)}" target="_blank" rel="noopener noreferrer">Görüntüle</a>`
       : "";
     const safeId = escapeHTML(post.id);
 
@@ -539,11 +534,8 @@ function watchPosts() {
 function firebaseMessage(error, fallback) {
   const code = error?.code || "";
 
-  if (code === "auth/invalid-credential") return "E-posta veya şifre hatalı.";
-  if (code === "auth/user-not-found") return "Bu e-posta için kullanıcı bulunamadı.";
-  if (code === "auth/invalid-email") return "E-posta adresi geçerli görünmüyor.";
+  if (["auth/invalid-credential", "auth/user-not-found", "auth/invalid-email", "auth/wrong-password"].includes(code)) return "E-posta veya şifre hatalı.";
   if (code === "auth/missing-email") return "Şifre sıfırlama için e-posta adresini yazmalısın.";
-  if (code === "auth/wrong-password") return "Şifre hatalı.";
   if (code === "auth/too-many-requests") return "Çok fazla deneme yapıldı. Bir süre sonra tekrar dene.";
   if (code === "auth/network-request-failed") return "Ağ bağlantısı kurulamadı. İnterneti ve Firebase erişimini kontrol et.";
   if (code === "auth/unauthorized-domain") return "Bu domain Firebase Authentication içinde yetkili değil. Authentication > Settings > Authorized domains kısmına domaini ekle.";

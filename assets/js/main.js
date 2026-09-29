@@ -5,15 +5,15 @@ const siteNav = document.querySelector("[data-site-nav]");
 const THEME_KEY = "hissez-theme";
 const TRACK_KEY = "hissez-audio-track";
 const MUTE_KEY = "hissez-audio-muted";
-const PWA_RECOVERY_VERSION = "33";
+const PWA_RECOVERY_VERSION = "34";
 const PWA_RECOVERY_KEY = "hissez-pwa-recovery-version";
 const PWA_RECOVERY_PARAM = "hissez-pwa-reset";
 
 const tracks = [
-  { title: "Sessiz Ambiyans", subtitle: "Yumuşak ve düz fon", src: "assets/audio/hissez-sessiz-ambiyans.ogg?v=2" },
-  { title: "Gece Defteri", subtitle: "Daha koyu, hafif ritimli", src: "assets/audio/hissez-gece-defteri.ogg?v=2" },
-  { title: "Şiir Odası", subtitle: "Parlak ve çan dokulu", src: "assets/audio/hissez-siir-odasi.ogg?v=2" },
-  { title: "Gün Notu", subtitle: "Daha hareketli, sıcak fon", src: "assets/audio/hissez-gun-notu.ogg?v=2" }
+  { title: "Sessiz Ambiyans", subtitle: "Yumuşak ve düz fon", src: "/assets/audio/hissez-sessiz-ambiyans.ogg?v=2" },
+  { title: "Gece Defteri", subtitle: "Daha koyu, hafif ritimli", src: "/assets/audio/hissez-gece-defteri.ogg?v=2" },
+  { title: "Şiir Odası", subtitle: "Parlak ve çan dokulu", src: "/assets/audio/hissez-siir-odasi.ogg?v=2" },
+  { title: "Gün Notu", subtitle: "Daha hareketli, sıcak fon", src: "/assets/audio/hissez-gun-notu.ogg?v=2" }
 ];
 
 function setTheme(theme) {
@@ -59,10 +59,12 @@ function initCommon() {
     addEventListener("resize", () => { if (innerWidth > 920) setMenu(false); }, { passive: true });
   }
 
-  const currentPage = location.pathname.split("/").pop() || "index.html";
+  const currentPath = location.pathname.replace(/\/+$/, "") || "/";
   document.querySelectorAll(".site-nav a").forEach((link) => {
     const href = link.getAttribute("href");
-    if (href === currentPage || (currentPage === "" && href === "index.html")) link.classList.add("active");
+    if (!href || !href.startsWith("/")) return;
+    const linkPath = new URL(href, location.origin).pathname.replace(/\/+$/, "") || "/";
+    if (linkPath === currentPath) link.classList.add("active");
   });
 
   const revealItems = document.querySelectorAll(".reveal");
@@ -85,7 +87,7 @@ function enhanceFooter() {
   if (!footer) return;
   footer.innerHTML = `
     <div class="footer-brand"><strong>Hissez</strong><span>Sezin’in kaleminden şiirler ve gün notları.</span></div>
-    <nav class="footer-nav" aria-label="Alt menü"><a href="index.html">Ana Sayfa</a><a href="siirler.html">Şiirler</a><a href="gun-notlari.html">Gün Notları</a><a href="arsiv.html">Arşiv</a><a href="hakkimda.html">Hakkımda</a></nav>
+    <nav class="footer-nav" aria-label="Alt menü"><a href="/">Ana Sayfa</a><a href="/siirler">Şiirler</a><a href="/gun-notlari">Gün Notları</a><a href="/arsiv">Arşiv</a><a href="/hakkimda">Hakkımda</a></nav>
     <div class="footer-meta"><div class="footer-social"><a class="social-link" href="https://www.instagram.com/hissezz" target="_blank" rel="noopener noreferrer" aria-label="Hissez Instagram hesabı">Instagram</a><a class="social-link" href="https://pin.it/55jp4Ze6V" target="_blank" rel="noopener noreferrer" aria-label="Hissez Pinterest hesabı">Pinterest</a></div><span>© <span data-year>${new Date().getFullYear()}</span> Hissez</span></div>`;
 }
 

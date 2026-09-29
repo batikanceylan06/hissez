@@ -1,16 +1,20 @@
-const CACHE_NAME = "hissez-public-v33-share";
+const CACHE_NAME = "hissez-public-v34-clean-routes";
 const NETWORK_TIMEOUT_MS = 4500;
 const CORE_ASSETS = [
   "/",
   "/index.html",
+  "/siirler",
   "/siirler.html",
+  "/gun-notlari",
   "/gun-notlari.html",
+  "/arsiv",
   "/arsiv.html",
   "/yazi.html",
+  "/hakkimda",
   "/hakkimda.html",
   "/assets/css/style.css",
-  "/assets/js/main.js?v=33",
-  "/assets/js/posts.js?v=33",
+  "/assets/js/main.js?v=34",
+  "/assets/js/posts.js?v=34",
   "/assets/js/post-utils.js",
   "/assets/js/firebase-config.js",
   "/assets/img/hissez-logo.png",
@@ -58,6 +62,7 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   const networkOnlyPaths = new Set([
+    "/sezin-panel",
     "/sezin-panel.html",
     "/assets/js/admin.js",
     "/assets/css/admin.css",

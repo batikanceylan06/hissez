@@ -14,6 +14,7 @@ Sezin’in şiirlerini ve günlük tarzı gün notlarını yayınlayabileceği F
 - `assets/js/admin.js`: Admin giriş, yazı ekleme, düzenleme, yayına alma
 - `assets/js/posts.js`: Public site yazı listeleme ve detay gösterme
 - `assets/js/post-utils.js`: Arama, arşiv, kategori, sıralama ve okuma yardımcıları
+- `docs/security.md`: Firebase, App Check, Auth, Vercel ve yedekleme hardening notları
 
 ## Firebase Kurulum
 
@@ -25,22 +26,17 @@ Sezin’in şiirlerini ve günlük tarzı gün notlarını yayınlayabileceği F
 6. Aşağıdaki “Admin Custom Claim kurulumu” adımlarıyla kullanıcıya `admin: true` yetkisi ver.
 7. `config/firestore.rules` kurallarını ve `config/firestore.indexes.json` indekslerini yayınla.
 
-## Firestore ve Realtime Database
+## Firestore
 
 Esas post veri kaynağı Cloud Firestore'daki `posts` collection'ıdır. Public istemci yalnızca
 `status == "published"` ve zamanı gelmiş `scheduled` dokümanlarını kurallarla uyumlu ayrı
 sorgularla okuyabilir. Filtresiz collection okuması, taslaklar ve gelecekteki zamanlanmış
 içerikler reddedilir. Yönetici tam okuma/yazma yetkisi `auth.token.admin === true` Custom
-Claim ile verilir. RTDB postları rollback amacıyla korunur; istemci RTDB'yi yalnızca
-`.info/serverTimeOffset` için kullanır.
+Claim ile verilir. Public ve yönetim istemcileri yalnızca Cloud Firestore kullanır.
 
 Zamanlanmış yayın keşfi için `postSchedule/{postId}` collection'ında yalnızca `publishAt`
 ve `updatedAt` metadata alanları tutulur. Gelecekteki post başlığı ve içeriği bu collection'a
 yazılmaz; asıl post belgesi Rules tarafından yayın zamanı gelene kadar reddedilir.
-
-Kurallardaki iki e-posta kontrolü yalnızca mevcut yöneticileri ilk Custom Claim kurulana
-kadar kilitlememek için geçici uyumluluk katmanıdır. Tüm yönetici hesaplarına claim
-verildikten sonra bu e-posta koşulları kurallardan kaldırılmalıdır.
 
 Frontend dosyalarında yönetici e-posta listesi tutulmaz; gerçek yetki her zaman Firebase
 Authentication tokenı ve Firestore Rules tarafından belirlenir.
@@ -50,12 +46,12 @@ Authentication tokenı ve Firestore Rules tarafından belirlenir.
 Panel adresi:
 
 ```txt
-/sezin-panel.html
+/sezin-panel
 ```
 
 Bu adres public menüde, footer’da veya ana sayfada görünmez. Ayrıca:
 
-- `sezin-panel.html` içinde `noindex, nofollow` vardır.
+- `/sezin-panel` içinde `noindex, nofollow` vardır.
 - `robots.txt` panel dosyasını engeller.
 - `vercel.json` Vercel üzerinde panel için `X-Robots-Tag` header ekler.
 - Asıl güvenlik Firebase Auth + Firestore Rules tarafındadır.
@@ -98,7 +94,7 @@ Collection/document yolu: `posts/{existingPostId}`
 
 ## Yayına Alma
 
-1. `/sezin-panel.html` adresine git.
+1. `/sezin-panel` adresine git.
 2. E-posta ve şifreyle giriş yap.
 3. Yazı başlığı, türü, tarihi ve içeriği gir.
 4. Taslak olarak kaydet veya direkt yayına al.
@@ -106,7 +102,8 @@ Collection/document yolu: `posts/{existingPostId}`
 
 Zamanlanmış yayın için durum olarak `Zamanlanmış` seçilir ve Türkiye tarih/saat alanı
 doldurulur. `publishAt`, UTC epoch milisaniyesi olarak saklanır. Yeni alanların üçü de
-opsiyoneldir. RTDB'deki mevcut kayıtlar için `docs/firestore-migration.md` adımlarını uygula.
+opsiyoneldir. Mevcut Firestore kayıtları aynı document ID'leriyle korunur; bu frontend
+değişikliği veri taşıma işlemi yapmaz.
 
 Gerçek bir sunucu işlemiyle `scheduled` kaydını tam vaktinde `published` yapmak istersen
 opsiyonel Cloud Functions yaklaşımı için `docs/scheduled-publishing.md` dosyasına bak.
@@ -129,20 +126,18 @@ Yetkiyi kaldırmak için:
 node scripts/set-admin-claim.mjs yonetici@ornek.com revoke
 ```
 
-Claim değişikliğinden sonra kullanıcı panelden çıkış yapıp tekrar giriş yapmalıdır. Tüm
-mevcut yöneticilere claim verildikten sonra `config/firestore.rules` içindeki geçici
-`auth.token.email` koşullarını kaldır ve yalnızca `auth.token.admin === true` bırak.
+Claim değişikliğinden sonra kullanıcı panelden çıkış yapıp tekrar giriş yapmalıdır. Rules
+yalnızca `auth.token.admin === true` claim'ini kabul eder.
 
 ## Güvenli yayınlama sırası
 
-Migration ve doğrulama tamamlandıktan sonra önce Firestore Rules/indekslerini, ardından
-frontend'i yayınla. Ayrıntılı ve geri alınabilir sıra `docs/firestore-migration.md` içindedir.
+Önce Firestore Rules/indekslerini, ardından frontend'i yayınla.
 
 ```powershell
 npx firebase-tools deploy --only firestore --project hissez
 ```
 
-`firebase.json`, Firestore ve korunmuş RTDB yapılandırmalarını birlikte tutar.
+`firebase.json` yalnızca Firestore Rules/indekslerini ve ilgili emülatör ayarlarını tutar.
 
 Kuralları production verisine dokunmadan emülatörde test etmek için:
 
@@ -156,7 +151,6 @@ Hazır komutlar:
 npm test
 npm run test:utils
 npm run test:rules
-npm run test:migration
 ```
 
 ## Tarayıcıda saklanan tercihler
@@ -213,7 +207,7 @@ Public site için:
 - Menüden `Ana ekrana ekle` seç.
 
 Panel için:
-- `sezin-panel.html` adresini aç.
+- `/sezin-panel` adresini aç.
 - Menüden `Ana ekrana ekle` yap.
 
 Ayrıca istersen public site ve panel ayrı zip olarak da kullanılabilir.
@@ -348,7 +342,7 @@ Bu sürümde public site tarafı temizlendi ve tek bir düzenli CSS mimarisine �
 ## Final v16 güncellemesi
 
 Bu tarihsel sürümde e-posta listesi kullanılıyordu. Güncel sürümde frontend e-posta
-listesi kaldırılmış, Custom Claim tabanlı yetkilendirmeye geçiş hazırlanmıştır.
+listesi kaldırılmış ve yalnızca Custom Claim tabanlı yetkilendirme kullanılmaktadır.
 
 
 ## Final v17 — Premium CSS Pro
@@ -375,7 +369,7 @@ Eklenen / güçlendirilenler:
 ## Final v18 — Klasör Yapısı Düzenlendi
 
 - Kök klasördeki ikon dosyaları `assets/icons/` altına taşındı.
-- `firebase-rules.json` dosyası `config/` altına alındı.
+- Firestore rules ve index dosyaları `config/` altında tutulur.
 - `README.md` `docs/` altına taşındı.
 - HTML, manifest ve service worker yolları yeni yapıya göre güncellendi.
 - Kök klasör daha temiz hale getirildi.

@@ -1,9 +1,15 @@
 # Opsiyonel server-side zamanlanmış yayın
 
-Mevcut sürüm backend gerektirmeden güvenli çalışır: gelecekteki `scheduled` kayıtlar Rules
-tarafından gizlenir, süresi gelen kayıtlar sunucu dakikasına kilitli bir sorguyla public
-olur. Bu yöntem veritabanındaki `status` alanını değiştirmez ve en fazla yaklaşık bir
-dakika gecikmeyle görünürlük sağlar.
+Mevcut istemci akışı backend gerektirmeden çalışır. `postSchedule` collection'ında yalnızca
+`publishAt` ve `updatedAt` metadata alanları tutulur. İstemci `Date.now()` ile zamanı geldiği
+düşünülen kayıtların kimliklerini seçer ve asıl post belgesini `getDoc` ile okur. Bu kontrol
+yalnızca yenileme/görünürlük ipucudur; istemci saati bir güvenlik kaynağı değildir.
+
+Asıl güvenlik Firestore Rules tarafındadır: scheduled içeriklerin erişimi
+`request.time.toMillis()` ile server-side kontrol edilir. İstemci saati ileri alınsa bile
+gelecekteki içerik açılmaz; Firestore Rules isteği reddeder. İstemci saati geri kalırsa
+görünürlük yenilemesi gecikebilir. Client akışı `status` alanını değiştirmez ve dakikalık
+yenileme döngüsü nedeniyle normalde en fazla yaklaşık bir dakika gecikme oluşturur.
 
 Tam vaktinde kalıcı durum geçişi istenirse Firebase Cloud Functions Scheduler kullanılabilir.
 Bu, mevcut istemci fallback'inin yerine geçmek zorunda değildir; birlikte çalışabilir.

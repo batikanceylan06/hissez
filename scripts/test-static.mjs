@@ -16,9 +16,16 @@ for (const file of htmlFiles) {
   for (const match of html.matchAll(/<(?:a|link|script|img)[^>]+(?:href|src)="([^"]+)"[^>]*>/g)) {
     const url = match[1];
     if (/^(?:https?:|data:|#|mailto:|tel:)/.test(url)) continue;
-    const localPath = url.split(/[?#]/)[0];
+    if (/^\/(?:siirler|gun-notlari|arsiv|hakkimda|sezin-panel)(?:[?#]|$)/.test(url)) continue;
+    const localPath = url.split(/[?#]/)[0].replace(/^\//, "");
     assert.ok(existsSync(resolve(root, localPath)), `${file}: eksik yerel kaynak ${localPath}`);
+    if (!url.startsWith("/") && (localPath.startsWith("assets/") || localPath.endsWith(".webmanifest"))) {
+      assert.fail(`${file}: asset yolu root-relative değil: ${url}`);
+    }
   }
+
+  assert.doesNotMatch(html, /(?:href|src)="(?:assets\/|site\.webmanifest|panel\.webmanifest)/, `${file}: nested route için relative asset yolu kaldı`);
+  assert.doesNotMatch(html, /href="(?:index|siirler|gun-notlari|arsiv|hakkimda|sezin-panel)\.html/, `${file}: kullanıcı-facing .html navigasyonu kaldı`);
 
   for (const match of html.matchAll(/<a\b([^>]*target="_blank"[^>]*)>/g)) {
     assert.match(match[1], /rel="[^"]*noopener[^"]*noreferrer[^"]*"/, `${file}: target=_blank rel güvenliği eksik`);
@@ -37,18 +44,25 @@ for (const requiredId of ["postPublishAt", "postSeries", "postAuthorNote", "stat
 }
 
 const sw = readFileSync(resolve(root, "sw.js"), "utf8");
+const backingRoutes = { "/": "index.html", "/siirler": "siirler.html", "/gun-notlari": "gun-notlari.html", "/arsiv": "arsiv.html", "/hakkimda": "hakkimda.html", "/sezin-panel": "sezin-panel.html" };
 const cachedAssets = [...sw.matchAll(/^\s*"(\/[^"]+)"[,]?$/gm)].map((match) => match[1]);
 for (const asset of cachedAssets) {
-  const localPath = asset === "/" ? "index.html" : asset.slice(1).split(/[?#]/)[0];
+  const localPath = backingRoutes[asset] || asset.slice(1).split(/[?#]/)[0];
   assert.ok(existsSync(resolve(root, localPath)), `Service Worker kaynağı eksik: ${asset}`);
 }
 assert.ok(cachedAssets.includes("/assets/js/post-utils.js"), "post-utils.js Service Worker cache listesinde değil");
-assert.ok(cachedAssets.includes("/arsiv.html"), "arsiv.html Service Worker cache listesinde değil");
+assert.ok(sw.includes('  "/",'), "Ana sayfa Service Worker cache listesinde değil");
+for (const adminOnlyPath of ["/sezin-panel", "/sezin-panel.html", "/assets/js/admin.js", "/assets/css/admin.css", "/panel.webmanifest"]) {
+  assert.ok(sw.includes(`"${adminOnlyPath}"`), `Admin kaynağı Service Worker network-only listesinde değil: ${adminOnlyPath}`);
+}
+for (const route of ["/siirler", "/gun-notlari", "/arsiv", "/hakkimda", "/yazi.html"]) {
+  assert.ok(cachedAssets.includes(route), `${route} Service Worker cache listesinde değil`);
+}
 for (const resilienceToken of ["NETWORK_TIMEOUT_MS", "AbortController", "ignoreSearch", "OPTIONAL_ASSETS"]) {
   assert.ok(sw.includes(resilienceToken), `PWA dayanıklılık özelliği eksik: ${resilienceToken}`);
 }
 for (const safariRecoveryToken of [
-  'hissez-public-v33-share',
+  'hissez-public-v34-clean-routes',
   'key.startsWith("hissez-")',
   "await self.skipWaiting()",
   "await self.clients.claim()"
@@ -58,7 +72,7 @@ for (const safariRecoveryToken of [
 
 const main = readFileSync(resolve(root, "assets/js/main.js"), "utf8");
 for (const recoveryToken of [
-  'const PWA_RECOVERY_VERSION = "33"',
+  'const PWA_RECOVERY_VERSION = "34"',
   'name.startsWith("hissez-")',
   "registration.unregister()",
   "caches.delete(name)",
@@ -68,38 +82,86 @@ for (const recoveryToken of [
 }
 for (const file of htmlFiles.filter((file) => file !== "sezin-panel.html")) {
   const html = readFileSync(resolve(root, file), "utf8");
-  assert.ok(html.includes('assets/js/main.js?v=33'), `${file}: sürümlü main.js bağlantısı eksik`);
-  assert.ok(html.includes('assets/js/posts.js?v=33'), `${file}: sürümlü posts.js bağlantısı eksik`);
+  assert.ok(html.includes('assets/js/main.js?v=34'), `${file}: sürümlü main.js bağlantısı eksik`);
+  assert.ok(html.includes('assets/js/posts.js?v=34'), `${file}: sürümlü posts.js bağlantısı eksik`);
 }
-assert.ok(panel.includes('assets/js/admin.js?v=33'), "Panel sürümlü admin.js bağlantısı eksik");
+assert.ok(panel.includes('assets/js/admin.js?v=34'), "Panel sürümlü admin.js bağlantısı eksik");
+
+assert.doesNotMatch(csp, /\*/, "CSP wildcard içeriyor");
+assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval/, "CSP unsafe-inline/unsafe-eval içeriyor");
+for (const cspToken of [
+  "https://www.gstatic.com",
+  "https://www.google.com/recaptcha/",
+  "https://firestore.googleapis.com",
+  "https://identitytoolkit.googleapis.com",
+  "https://securetoken.googleapis.com",
+  "https://content-firebaseappcheck.googleapis.com",
+  "https://hissez.firebaseapp.com"
+]) {
+  assert.ok(csp.includes(cspToken), `CSP App Check/Firebase kaynağı eksik: ${cspToken}`);
+}
 
 const posts = readFileSync(resolve(root, "assets/js/posts.js"), "utf8");
 assert.ok(posts.includes('const PUBLIC_POSTS_CACHE_KEY = "hissezPublicPostsV1"'), "Public yazı offline cache'i eksik");
 assert.ok(posts.includes("firebase-firestore.js"), "Public yazılar Firestore SDK kullanmıyor");
-assert.ok(posts.indexOf("watchPublishedPosts(") < posts.indexOf('get(ref(clockDb, ".info/serverTimeOffset"))'), "Public listener sunucu saatini bekliyor");
 assert.ok(posts.includes('where("status", "==", "published")'), "Published Firestore sorgusu eksik");
 assert.ok(posts.includes('collection(firestore, "postSchedule")'), "Scheduled metadata collection eksik");
 assert.ok(posts.includes("getDoc(doc(postsCollection, id))"), "Due scheduled tekil okuması eksik");
-assert.ok(!posts.includes('ref(clockDb, "posts"'), "Public post verisi RTDB üzerinden okunuyor");
+assert.doesNotMatch(posts, /database|server.*offset|clock.*db/i, "Public runtime Firestore dışında bir database bağımlılığı içeriyor");
 
 const admin = readFileSync(resolve(root, "assets/js/admin.js"), "utf8");
 assert.ok(admin.includes("firebase-firestore.js"), "Admin panel Firestore SDK kullanmıyor");
 for (const firestoreAdminToken of ["onSnapshot(postsCollection", "doc(postsCollection)", "batch.update(doc(postsCollection", "batch.delete(doc(postsCollection", "writeBatch(firestore)", 'collection(firestore, "postSchedule")']) {
   assert.ok(admin.includes(firestoreAdminToken), `Admin Firestore özelliği eksik: ${firestoreAdminToken}`);
 }
-assert.ok(!admin.includes("firebase-database.js"), "Admin panelde RTDB SDK referansı kaldı");
+assert.doesNotMatch(admin, /database/i, "Admin runtime Firestore dışında bir database bağımlılığı içeriyor");
+assert.ok(admin.includes("function cleanPostPath(post)"), "Admin temiz post yolu eksik");
+assert.ok(admin.includes('href="${cleanPostPath(post)}"'), "Admin görüntüleme linki temiz değil");
+assert.ok(admin.includes("return tokenResult.claims.admin === true"), "Admin paneli yalnızca custom claim ile yetkilendirmiyor");
+assert.doesNotMatch(admin, /localStorage\.(?:getItem|setItem)\([^)]*(?:auth|token|session)/i, "Admin session/token localStorage'a yazılıyor");
+assert.ok(admin.includes('"auth/invalid-credential", "auth/user-not-found", "auth/invalid-email", "auth/wrong-password"'), "Auth hata mesajları hesap enumeration riskini azaltmıyor");
+assert.doesNotMatch(admin, /Bu e-posta için kullanıcı bulunamadı|Şifre hatalı\./, "Auth hata mesajı hesap var/yok bilgisini açığa çıkarıyor");
+
+for (const cleanNavigation of ['href="/"', 'href="/siirler"', 'href="/gun-notlari"', 'href="/arsiv"', 'href="/hakkimda"', 'src: "/assets/audio/']) {
+  assert.ok(main.includes(cleanNavigation), `Main temiz navigasyon/asset eksik: ${cleanNavigation}`);
+}
+for (const source of [posts, admin, main]) {
+  assert.doesNotMatch(source, /(?:href|src)\s*[:=]\s*["'`]?(?:index|siirler|gun-notlari|arsiv|hakkimda|sezin-panel)\.html/, "JS içinde kullanıcı-facing .html yolu kaldı");
+}
 
 for (const requiredFile of [
   "config/firestore.rules",
   "config/firestore.indexes.json",
-  "scripts/migrate-rtdb-to-firestore.mjs",
-  "scripts/verify-firestore-migration.mjs",
-  "scripts/test-firestore-rules.mjs",
-  "scripts/test-firestore-migration.mjs",
-  "docs/firestore-migration.md"
+  "scripts/test-firestore-rules.mjs"
 ]) {
-  assert.ok(existsSync(resolve(root, requiredFile)), `Firestore migration dosyası eksik: ${requiredFile}`);
+  assert.ok(existsSync(resolve(root, requiredFile)), `Firestore dosyası eksik: ${requiredFile}`);
 }
+
+const firebaseConfig = readFileSync(resolve(root, "assets/js/firebase-config.js"), "utf8");
+assert.doesNotMatch(firebaseConfig, /database/i, "Firebase config içinde eski database bağlantısı kaldı");
+for (const appCheckToken of [
+  "initializeAppCheck",
+  "ReCaptchaEnterpriseProvider",
+  "appCheckSiteKey",
+  "isTokenAutoRefreshEnabled: true",
+  "isLocalDevelopment"
+]) {
+  assert.ok(firebaseConfig.includes(appCheckToken), `Firebase App Check yapılandırması eksik: ${appCheckToken}`);
+}
+for (const source of [firebaseConfig, posts, admin]) {
+  assert.ok(source.includes("www.gstatic.com/firebasejs/12.19.0/"), "Browser Firebase SDK sürümleri tek pinned sürüm değil");
+}
+const firebaseDefinition = readFileSync(resolve(root, "firebase.json"), "utf8");
+assert.doesNotMatch(firebaseDefinition, /"database"\s*:/i, "Firebase CLI config içinde eski database bölümü kaldı");
+const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+assert.equal(packageJson.scripts["test:rules"], "npm run test:rules:firestore", "Rules testi Firestore-only değil");
+assert.deepEqual(Object.keys(packageJson.scripts).sort(), [
+  "test",
+  "test:rules",
+  "test:rules:firestore",
+  "test:static",
+  "test:utils"
+].sort(), "Package içinde eski database/migration komutu kaldı");
 
 const firestoreRules = readFileSync(resolve(root, "config/firestore.rules"), "utf8");
 for (const rulesToken of [
@@ -110,19 +172,22 @@ for (const rulesToken of [
 ]) {
   assert.ok(firestoreRules.includes(rulesToken), `Firestore güvenlik kuralı eksik: ${rulesToken}`);
 }
-
-const migration = readFileSync(resolve(root, "scripts/migrate-rtdb-to-firestore.mjs"), "utf8");
-for (const migrationToken of [
-  'const APPLY = process.argv.includes("--apply")',
-  "const BATCH_SIZE = 400",
-  'rtdb.ref("posts").get()',
-  'firestore.collection("posts").doc(id)',
-  "if (!APPLY)",
-  "SCHEDULE INDEX CHANGES"
-]) {
-  assert.ok(migration.includes(migrationToken), `Migration güvenlik özelliği eksik: ${migrationToken}`);
+assert.ok(firestoreRules.includes("request.auth.token.admin == true"), "Firestore admin claim kuralı eksik");
+assert.doesNotMatch(firestoreRules, /request\.auth\.token\.email|@icloud\.com|@gmail\.com/, "Firestore rules içinde hardcoded admin e-posta fallback'i kaldı");
+const claimScript = readFileSync(resolve(root, "scripts/set-admin-claim.mjs"), "utf8");
+for (const claimToken of ["applicationDefault()", "getUserByEmail", "setCustomUserClaims", "revokeRefreshTokens"]) {
+  assert.ok(claimScript.includes(claimToken), `Admin claim script güvenlik kontrolü eksik: ${claimToken}`);
 }
-assert.ok(migration.indexOf("if (!APPLY)") < migration.indexOf("await batch.commit()"), "Dry run koruması yazımdan sonra çalışıyor");
+assert.doesNotMatch(claimScript, /service-account\.json|private_key|localStorage/i, "Admin claim script içinde secret/token saklama kalıbı var");
+assert.ok(existsSync(resolve(root, "docs/security.md")), "Güvenlik dokümantasyonu eksik");
+
+const runtimeSources = [main, posts, admin];
+for (const dangerousToken of [["insert", "AdjacentHTML"].join(""), ["document", ".write"].join(""), ["new", " Function"].join(""), ["eval", "("].join("")]) {
+  assert.ok(runtimeSources.every((source) => !source.includes(dangerousToken)), `Tehlikeli DOM/JS API kullanımı kaldı: ${dangerousToken}`);
+}
+assert.ok(posts.includes("escapeHTML(post.content || \"\")"), "Post içeriği escape edilmeden DOM'a yazılıyor");
+assert.ok(admin.includes("escapeHTML(post.title"), "Admin post başlığı escape edilmeden DOM'a yazılıyor");
+
 for (const requiredWatermarkToken of [
   'const CANVAS_WATERMARK = Object.freeze({ opacity: .075, fontSize: 150 })',
   'ctx.fillText("hissez.com", 0, 0)',
@@ -178,7 +243,7 @@ for (const requiredBlogToken of [
   "function initGlobalSearch()",
   "function renderRelated(posts, post)",
   "function initReadingProgress(enabled)",
-  'href="arsiv.html?category=',
+  'href="/arsiv?category=',
   "posts.slice(0, 6)"
 ]) {
   assert.ok(posts.includes(requiredBlogToken), `Edebiyat blogu özelliği eksik: ${requiredBlogToken}`);
@@ -194,7 +259,26 @@ const about = readFileSync(resolve(root, "hakkimda.html"), "utf8");
 assert.ok(about.includes('class="instagram-fixed-icon"'), "Hakkımda Instagram logosu eksik");
 
 const sitemap = readFileSync(resolve(root, "sitemap.xml"), "utf8");
-assert.ok(sitemap.includes("https://hissez.com/arsiv.html"), "Arşiv sitemap içinde değil");
+for (const route of ["/", "/siirler", "/gun-notlari", "/arsiv", "/hakkimda"]) {
+  assert.ok(sitemap.includes(`https://hissez.com${route}`), `Sitemap temiz URL eksik: ${route}`);
+}
+assert.doesNotMatch(sitemap, /https:\/\/hissez\.com\/[^<]*\.html/, "Sitemap kullanıcı-facing .html içeriyor");
+
+const siteManifest = JSON.parse(readFileSync(resolve(root, "site.webmanifest"), "utf8"));
+const panelManifest = JSON.parse(readFileSync(resolve(root, "panel.webmanifest"), "utf8"));
+assert.equal(siteManifest.start_url, "/", "Site manifest start_url clean değil");
+assert.equal(panelManifest.start_url, "/sezin-panel", "Panel manifest start_url clean değil");
+assert.ok(vercel.redirects?.some((item) => item.source === "/index.html" && item.destination === "/" && item.permanent), "index.html legacy redirect eksik");
+for (const route of ["/siirler", "/gun-notlari", "/arsiv", "/hakkimda", "/sezin-panel"]) {
+  assert.ok(vercel.rewrites?.some((item) => item.source === route), `Clean route rewrite eksik: ${route}`);
+}
+for (const legacy of ["/siirler.html", "/gun-notlari.html", "/arsiv.html", "/hakkimda.html", "/sezin-panel.html"]) {
+  assert.ok(vercel.redirects?.some((item) => item.source === legacy && item.permanent), `Legacy redirect eksik: ${legacy}`);
+}
+assert.ok(vercel.headers.some((item) => item.source === "/sezin-panel"), "Clean panel noindex header eksik");
+assert.ok(vercel.headers.some((item) => item.source === "/sezin-panel.html"), "Legacy panel noindex header eksik");
+const robots = readFileSync(resolve(root, "robots.txt"), "utf8");
+assert.match(robots, /Disallow: \/sezin-panel(?:\.html)?/g, "Admin robots kuralları eksik");
 
 const archivePage = readFileSync(resolve(root, "arsiv.html"), "utf8");
 assert.ok(archivePage.includes('id="archiveOverview"'), "Arşiv yıl/ay ve kategori özeti eksik");

@@ -74,8 +74,8 @@ try {
     admin: true,
     email: "admin@example.com"
   }).firestore();
-  const legacyAdminDb = testEnvironment.authenticatedContext("legacy-admin", {
-    email: "batikanceylan06@gmail.com"
+  const authenticatedWithoutAdminDb = testEnvironment.authenticatedContext("user-without-admin", {
+    email: "reader@example.com"
   }).firestore();
 
   await assertSucceeds(getDoc(doc(publicDb, "posts/published")));
@@ -83,6 +83,12 @@ try {
   await assertFails(getDoc(doc(publicDb, "posts/scheduled-future")));
   await assertSucceeds(getDoc(doc(publicDb, "posts/scheduled-due")));
   console.log("Firestore Rules: public tekil okumalar geçti.");
+
+  await assertSucceeds(getDoc(doc(authenticatedWithoutAdminDb, "posts/published")));
+  await assertFails(getDoc(doc(authenticatedWithoutAdminDb, "posts/draft")));
+  await assertFails(getDoc(doc(authenticatedWithoutAdminDb, "posts/scheduled-future")));
+  await assertFails(getDocs(collection(authenticatedWithoutAdminDb, "posts")));
+  console.log("Firestore Rules: claim'siz authenticated kullanıcı kısıtlamaları geçti.");
 
   const publicPublishedQuery = query(collection(publicDb, "posts"), where("status", "==", "published"));
   await assertSucceeds(getDocs(publicPublishedQuery));
@@ -96,10 +102,14 @@ try {
   await assertFails(deleteDoc(doc(publicDb, "posts/published")));
   await assertFails(setDoc(doc(publicDb, "postSchedule/public-write"), { publishAt: now, updatedAt: now }));
 
+  await assertFails(setDoc(doc(authenticatedWithoutAdminDb, "posts/claimless-create"), { ...basePost, slug: "claimless-create" }));
+  await assertFails(updateDoc(doc(authenticatedWithoutAdminDb, "posts/published"), { title: "Claim'siz güncelleme" }));
+  await assertFails(deleteDoc(doc(authenticatedWithoutAdminDb, "posts/published")));
+  await assertFails(setDoc(doc(authenticatedWithoutAdminDb, "postSchedule/claimless-write"), { publishAt: now, updatedAt: now }));
+
   assert.equal((await assertSucceeds(getDocs(collection(adminDb, "posts")))).size, 4);
   await assertSucceeds(getDoc(doc(adminDb, "posts/draft")));
   await assertSucceeds(getDoc(doc(adminDb, "posts/scheduled-future")));
-  await assertSucceeds(getDocs(collection(legacyAdminDb, "posts")));
   await assertSucceeds(setDoc(doc(adminDb, "posts/admin-create"), { ...basePost, slug: "admin-create" }));
   await assertSucceeds(updateDoc(doc(adminDb, "posts/admin-create"), { title: "Admin Güncelleme", updatedAt: now + 1 }));
   await assertSucceeds(deleteDoc(doc(adminDb, "posts/admin-create")));

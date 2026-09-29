@@ -6,12 +6,8 @@
     "test": "npm run test:utils && npm run test:static",
     "test:utils": "node scripts/test-post-utils.mjs",
     "test:static": "node scripts/test-static.mjs",
-    "test:rules": "npm run test:rules:rtdb && npm run test:rules:firestore",
-    "test:rules:rtdb": "npx -y firebase-tools@latest emulators:exec --only database,auth --project demo-hissez \"node scripts/test-firebase-rules.mjs\"",
-    "test:rules:firestore": "npx -y firebase-tools@latest emulators:exec --only firestore,auth --project demo-hissez \"node scripts/test-firestore-rules.mjs\"",
-    "test:migration": "npx -y firebase-tools@latest emulators:exec --only database,firestore --project demo-hissez \"node scripts/test-firestore-migration.mjs\"",
-    "migrate:firestore": "node scripts/migrate-rtdb-to-firestore.mjs",
-    "verify:firestore": "node scripts/verify-firestore-migration.mjs"
+    "test:rules": "npm run test:rules:firestore",
+    "test:rules:firestore": "npx -y firebase-tools@latest emulators:exec --only firestore,auth --project demo-hissez \"node scripts/test-firestore-rules.mjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "5.0.2",

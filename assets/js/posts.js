@@ -1,4 +1,3 @@
-import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 import {
   getFirestore,
   collection,
@@ -7,7 +6,7 @@ import {
   query,
   where,
   onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { app } from "./firebase-config.js";
 import {
   typeLabel,
@@ -27,7 +26,6 @@ import {
   firstMeaningfulStanza
 } from "./post-utils.js";
 
-const clockDb = getDatabase(app);
 const firestore = getFirestore(app);
 const postsCollection = collection(firestore, "posts");
 const postScheduleCollection = collection(firestore, "postSchedule");
@@ -48,7 +46,6 @@ const CANVAS_WATERMARK = Object.freeze({ opacity: .075, fontSize: 150 });
 let publishedValue = {};
 let scheduledValue = {};
 let currentPosts = [];
-let serverOffset = 0;
 let listToolsReady = false;
 let listSignature = "";
 let canvasPost = null;
@@ -59,7 +56,6 @@ let globalSearchReady = false;
 let readingProgressCleanup = null;
 let scheduledIndex = [];
 let scheduledRefreshVersion = 0;
-let clockReady = false;
 
 const listFilters = (() => {
   const params = new URLSearchParams(location.search);
@@ -120,7 +116,9 @@ function urlSlug(value = "") {
 }
 
 function cleanPostSlug(post, posts = currentPosts) {
-  const base = urlSlug(post?.title || post?.slug || "yazi") || "yazi";
+  const storedSlug = urlSlug(post?.slug);
+  if (storedSlug) return storedSlug;
+  const base = urlSlug(post?.title || "yazi") || "yazi";
   const sameTitle = posts.filter((item) => urlSlug(item.title || item.slug || "yazi") === base);
   if (sameTitle.length <= 1) return base;
 
@@ -147,8 +145,7 @@ function cleanPostUrl(post) {
 }
 
 function postHref(post) {
-  const localPreview = /^(?:localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
-  return localPreview ? `yazi.html?id=${encodeURIComponent(post.id)}` : cleanPostPath(post);
+  return cleanPostPath(post);
 }
 
 function safeISOString(value) {
@@ -338,7 +335,7 @@ function renderHome(posts) {
   if (categoryTarget) {
     const categories = categoryCounts(posts, 8);
     categoryTarget.innerHTML = categories.length ? categories.map(({ key, label, count }) => `
-      <a class="category-discovery-card" href="arsiv.html?category=${encodeURIComponent(key)}">
+      <a class="category-discovery-card" href="/arsiv?category=${encodeURIComponent(key)}">
         <span>${escapeHTML(label)}</span><small>${count} yazı</small>
       </a>`).join("") : '<p class="empty-state">Kategoriler yazılarla birlikte burada görünecek.</p>';
   }
@@ -507,11 +504,11 @@ function renderArchiveOverview(posts) {
       <h3>${year}</h3>
       <div>${months.map(({ month, count }) => {
         const active = listFilters.year === year && String(listFilters.month).padStart(2, "0") === month;
-        return `<a href="arsiv.html?year=${year}&month=${Number(month)}"${active ? ' aria-current="true"' : ""}>${MONTHS[Number(month) - 1]} <span>${count} yazı</span></a>`;
+        return `<a href="/arsiv?year=${year}&month=${Number(month)}"${active ? ' aria-current="true"' : ""}>${MONTHS[Number(month) - 1]} <span>${count} yazı</span></a>`;
       }).join("")}</div>
     </section>`).join("");
   const categoryLinks = categories.map(({ key, label, count }) => `
-    <a href="arsiv.html?category=${encodeURIComponent(key)}"${listFilters.category === key ? ' aria-current="true"' : ""}>${escapeHTML(label)} <span>${count}</span></a>`).join("");
+    <a href="/arsiv?category=${encodeURIComponent(key)}"${listFilters.category === key ? ' aria-current="true"' : ""}>${escapeHTML(label)} <span>${count}</span></a>`).join("");
   target.innerHTML = `
     <div class="archive-overview-block"><p class="eyebrow">Yıllara göre</p><div class="archive-overview-years">${monthGroups || "<p>Arşiv henüz boş.</p>"}</div></div>
     <div class="archive-overview-block"><p class="eyebrow">Kategoriler</p><div class="archive-overview-categories">${categoryLinks || "<p>Henüz kategori yok.</p>"}</div></div>`;
@@ -535,7 +532,7 @@ function renderGlobalSearch(queryValue = "") {
         <span aria-hidden="true">→</span>
       </a>`).join("") : '<p class="global-search-empty">Eşleşen yazı bulunamadı.</p>'
     : '<p class="global-search-empty">Şiirlerde ve gün notlarında aramak için yazmaya başla.</p>';
-  allLink.href = `arsiv.html${queryValue.trim() ? `?q=${encodeURIComponent(queryValue.trim())}` : ""}`;
+  allLink.href = `/arsiv${queryValue.trim() ? `?q=${encodeURIComponent(queryValue.trim())}` : ""}`;
   allLink.hidden = !queryValue.trim();
 }
 
@@ -560,7 +557,7 @@ function initGlobalSearch() {
       <div class="global-search-head"><div><p class="eyebrow">Hissez arşivi</p><h2 id="globalSearchTitle">Yazılarda ara</h2></div><button type="button" class="dialog-close" data-search-close aria-label="Aramayı kapat">×</button></div>
       <label class="global-search-field"><span class="visually-hidden">Arama sözcüğü</span><input id="globalSearchInput" type="search" maxlength="80" autocomplete="off" placeholder="Bir başlık, dize veya kelime…"></label>
       <div id="globalSearchResults" class="global-search-results" aria-live="polite"></div>
-      <a id="globalSearchAll" class="section-link global-search-all" href="arsiv.html" hidden>Tüm sonuçları arşivde gör →</a>
+      <a id="globalSearchAll" class="section-link global-search-all" href="/arsiv" hidden>Tüm sonuçları arşivde gör →</a>
     </div>`;
   document.body.appendChild(dialog);
   const input = dialog.querySelector("#globalSearchInput");
@@ -619,7 +616,7 @@ function updateDetailSEO(post) {
   const articleSchema = {
     "@type": "BlogPosting", "@id": `${canonical}#article`, headline: post.title || "Hissez Yazısı",
     description, datePublished, dateModified, inLanguage: "tr-TR", image: SITE_IMAGE,
-    author: { "@type": "Person", "@id": `${SITE_URL}/#person`, name: "Sezin", url: `${SITE_URL}/hakkimda.html` },
+    author: { "@type": "Person", "@id": `${SITE_URL}/#person`, name: "Sezin", url: `${SITE_URL}/hakkimda` },
     publisher: { "@type": "Person", "@id": `${SITE_URL}/#person`, name: "Sezin" },
     isPartOf: { "@id": `${SITE_URL}/#blog` }, url: canonical,
     mainEntityOfPage: { "@type": "WebPage", "@id": canonical }
@@ -629,7 +626,7 @@ function updateDetailSEO(post) {
     "@id": `${canonical}#breadcrumb`,
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Ana Sayfa", item: `${SITE_URL}/` },
-      { "@type": "ListItem", position: 2, name: typeLabel(post.type), item: `${SITE_URL}/${post.type === "daily" ? "gun-notlari.html" : "siirler.html"}` },
+      { "@type": "ListItem", position: 2, name: typeLabel(post.type), item: `${SITE_URL}/${post.type === "daily" ? "gun-notlari" : "siirler"}` },
       { "@type": "ListItem", position: 3, name: post.title || "Hissez Yazısı", item: canonical }
     ]
   };
@@ -666,7 +663,7 @@ function renderRelated(posts, post) {
   if (!related.length) return "";
   return `
     <section class="related-posts" aria-labelledby="relatedPostsTitle">
-      <div class="section-heading split"><div><p class="eyebrow">Okumaya devam et</p><h2 id="relatedPostsTitle">İlgili yazılar</h2></div><a class="section-link" href="arsiv.html">Arşive git</a></div>
+      <div class="section-heading split"><div><p class="eyebrow">Okumaya devam et</p><h2 id="relatedPostsTitle">İlgili yazılar</h2></div><a class="section-link" href="/arsiv">Arşive git</a></div>
       <div class="post-grid related-post-grid">${related.map(renderCard).join("")}</div>
     </section>`;
 }
@@ -730,7 +727,7 @@ function renderDetail(posts) {
   saveRecent(post.id);
   const typePosts = posts.filter((item) => item.type === post.type);
   const adjacent = adjacentPosts(typePosts, post.id);
-  const backUrl = post.type === "daily" ? "gun-notlari.html" : "siirler.html";
+  const backUrl = post.type === "daily" ? "/gun-notlari" : "/siirler";
   const backText = post.type === "daily" ? "Gün Notlarına Dön" : "Şiirlere Dön";
   const favorite = readIdList(FAVORITES_KEY).includes(post.id);
   const minutes = readingMinutes(post.content);
@@ -739,7 +736,7 @@ function renderDetail(posts) {
   const shareText = `${post.title || "Hissez yazısı"} — Hissez`;
 
   detail.innerHTML = `
-    ${post.type === "daily" ? `<nav class="detail-breadcrumb" aria-label="İçerik yolu"><a href="index.html">Ana Sayfa</a><span aria-hidden="true">/</span><a href="gun-notlari.html">Gün Notları</a><span aria-hidden="true">/</span><span aria-current="page">${escapeHTML(post.title || "Yazı")}</span></nav>` : ""}
+    ${post.type === "daily" ? `<nav class="detail-breadcrumb" aria-label="İçerik yolu"><a href="/">Ana Sayfa</a><span aria-hidden="true">/</span><a href="/gun-notlari">Gün Notları</a><span aria-hidden="true">/</span><span aria-current="page">${escapeHTML(post.title || "Yazı")}</span></nav>` : ""}
     <div class="post-meta"><span>${typeLabel(post.type)}</span><span>${formatDate(post.date)}</span>${categoryChip(post)}${showReadingTime ? `<span>${minutes} dk okuma</span>` : ""}</div>
     <h1>${escapeHTML(post.title || "Başlıksız Yazı")}</h1>
     ${post.excerpt ? `<p class="hero-text">${escapeHTML(post.excerpt)}</p>` : ""}
@@ -766,7 +763,7 @@ function renderDetail(posts) {
     ${renderSeries(posts, post)}
     ${renderRelated(posts, post)}
     <nav class="article-neighbors" aria-label="Aynı türde önceki ve sonraki yazılar">${postLink(adjacent.previous, `← Önceki ${typeLabel(post.type)}`)}${postLink(adjacent.next, `Sonraki ${typeLabel(post.type)} →`)}</nav>
-    <div class="article-actions"><a class="btn btn-primary" href="${backUrl}">${backText}</a><a class="btn btn-ghost" href="index.html">Ana Sayfa</a></div>
+    <div class="article-actions"><a class="btn btn-primary" href="${backUrl}">${backText}</a><a class="btn btn-ghost" href="/">Ana Sayfa</a></div>
     ${post.type === "poem" ? renderCanvasDialog(post) : ""}`;
 
   canvasPost = post.type === "poem" ? post : null;
@@ -1151,7 +1148,7 @@ async function sharePoemImage(post, options = {}) {
 }
 
 function renderCurrent() {
-  const now = Date.now() + serverOffset;
+  const now = Date.now();
   currentPosts = normalizePosts(publishedValue, scheduledValue).filter((post) => isPublicPost(post, now));
   if (page === "home") renderHome(currentPosts);
   if (page === "list") renderList(currentPosts);
@@ -1181,8 +1178,7 @@ function snapshotToPostValue(snapshot) {
 }
 
 async function refreshScheduledPosts() {
-  if (!clockReady) return;
-  const serverNow = Date.now() + serverOffset;
+  const serverNow = Date.now();
   const currentMinute = serverNow - (serverNow % 60000);
   const refreshVersion = ++scheduledRefreshVersion;
   const dueEntries = scheduledIndex.filter(({ publishAt }) => Number(publishAt) > 0 && Number(publishAt) <= currentMinute);
@@ -1256,18 +1252,7 @@ function init() {
   });
   watchScheduledIndex();
 
-  get(ref(clockDb, ".info/serverTimeOffset"))
-    .then((offsetSnapshot) => {
-      serverOffset = Number(offsetSnapshot.val()) || 0;
-      clockReady = true;
-      renderCurrent();
-      refreshScheduledPosts();
-    })
-    .catch(() => {
-      serverOffset = 0;
-      clockReady = true;
-      refreshScheduledPosts();
-    });
+  refreshScheduledPosts();
 
   window.setInterval(refreshScheduledPosts, 60000);
   document.addEventListener("visibilitychange", () => {
