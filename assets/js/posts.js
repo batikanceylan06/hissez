@@ -37,14 +37,22 @@ const FAVORITES_KEY = "hissezFavorites";
 const RECENTS_KEY = "hissezRecentPosts";
 const PUBLIC_POSTS_CACHE_KEY = "hissezPublicPostsV1";
 const MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+const CANVAS_FORMATS = Object.freeze({
+  post: { width: 1080, height: 1350, maxLines: 11 },
+  story: { width: 1080, height: 1920, maxLines: 18 }
+});
 const CANVAS_WATERMARK_MODES = Object.freeze({
   elegant: {
-    opacity: .075,
-    fontSize: 260
+    opacity: .055,
+    fontSize: 96,
+    gapX: 540,
+    gapY: 310
   },
   strong: {
-    opacity: .09,
-    fontSize: 320
+    opacity: .085,
+    fontSize: 106,
+    gapX: 440,
+    gapY: 235
   }
 });
 const POEM_SHARE_TARGETS = Object.freeze({
@@ -723,7 +731,7 @@ function renderDetail(posts) {
       ${post.type === "poem" ? '<button class="btn btn-ghost compact-btn" type="button" data-detail-action="canvas">Görsel Oluştur</button>' : ""}
     </div>
     <div class="article-body${post.type === "poem" ? " poem-watermarked" : ""}">
-      ${post.type === "poem" ? '<span class="poem-watermark" aria-hidden="true"><span>HISSEZ</span></span>' : ""}
+      ${post.type === "poem" ? '<span class="poem-watermark" aria-hidden="true"><span>hissez.com</span></span>' : ""}
       <span class="article-body-text">${escapeHTML(post.content || "").replaceAll("\n", "<br>")}</span>
     </div>
     ${post.authorNote ? `<aside class="author-note"><p class="eyebrow">Yazarın notu</p><p>${escapeHTML(post.authorNote).replaceAll("\n", "<br>")}</p></aside>` : ""}
@@ -924,6 +932,7 @@ function paginateCanvasLines(lines, maxLines) {
 
 function drawCanvasWatermark(ctx, canvas, modeName = "elegant") {
   const mode = CANVAS_WATERMARK_MODES[modeName] || CANVAS_WATERMARK_MODES.elegant;
+  const coverage = Math.ceil(Math.hypot(canvas.width, canvas.height));
   ctx.save();
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.rotate(-Math.PI / 12);
@@ -932,17 +941,25 @@ function drawCanvasWatermark(ctx, canvas, modeName = "elegant") {
   ctx.font = `700 ${mode.fontSize}px "Playfair Display", Georgia, serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("HISSEZ", 0, 0);
+  let row = 0;
+  for (let y = -coverage; y <= coverage; y += mode.gapY) {
+    const offset = row % 2 ? mode.gapX / 2 : 0;
+    for (let x = -coverage; x <= coverage; x += mode.gapX) {
+      ctx.fillText("hissez.com", x + offset, y);
+    }
+    row += 1;
+  }
   ctx.restore();
 }
 
 async function renderPoemCanvas(canvas, post, options = {}) {
   if (!canvas || !post || post.type !== "poem") throw new Error("Paylaşılabilir şiir bulunamadı.");
   const format = options.format === "story" ? "story" : "post";
+  const formatConfig = CANVAS_FORMATS[format];
   const watermarkMode = options.watermarkMode === "strong" ? "strong" : "elegant";
   const excerpt = String(options.excerpt || poemCanvasExcerpt(post)).trim();
-  canvas.width = 1080;
-  canvas.height = format === "story" ? 1920 : 1350;
+  canvas.width = formatConfig.width;
+  canvas.height = formatConfig.height;
   try { await document.fonts?.ready; } catch { /* Sistem fontlarıyla devam et. */ }
   const ctx = canvas.getContext("2d");
   const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
@@ -970,10 +987,9 @@ async function renderPoemCanvas(canvas, post, options = {}) {
   ctx.fillStyle = "#2a111b";
   ctx.fillText(post.title || "Başlıksız Şiir", 100, 265);
 
-  const maxLines = format === "story" ? 18 : 11;
   const bodySize = excerpt.length > 520 ? 38 : excerpt.length > 330 ? 43 : format === "story" ? 54 : 49;
   ctx.font = `500 ${bodySize}px "Playfair Display", Georgia, serif`;
-  const pages = paginateCanvasLines(wrapCanvasText(ctx, excerpt, 850), maxLines);
+  const pages = paginateCanvasLines(wrapCanvasText(ctx, excerpt, 850), formatConfig.maxLines);
   const requestedPage = Number.isInteger(options.pageIndex) ? options.pageIndex : 0;
   const pageIndex = Math.min(Math.max(requestedPage, 0), pages.length - 1);
   const lines = pages[pageIndex];
@@ -1055,8 +1071,11 @@ function downloadFile(file) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function downloadFiles(files) {
-  files.forEach(downloadFile);
+async function downloadFiles(files) {
+  for (const file of files) {
+    downloadFile(file);
+    await new Promise((resolve) => window.setTimeout(resolve, 180));
+  }
 }
 
 async function createPoemImageFiles(post, options, suffix) {
@@ -1069,10 +1088,13 @@ async function createPoemImageFiles(post, options, suffix) {
   const firstPage = await renderPoemCanvas(canvas, post, { ...renderOptions, pageIndex: 0 });
   const files = [];
   const baseName = `hissez-${safeFileName(post.slug || post.title)}-${suffix}`;
+  const pageDigits = Math.max(2, String(firstPage.pageCount).length);
 
   for (let pageIndex = 0; pageIndex < firstPage.pageCount; pageIndex += 1) {
     if (pageIndex > 0) await renderPoemCanvas(canvas, post, { ...renderOptions, pageIndex });
-    const pageSuffix = firstPage.pageCount > 1 ? `-sayfa-${pageIndex + 1}` : "";
+    const pageNumber = String(pageIndex + 1).padStart(pageDigits, "0");
+    const pageTotal = String(firstPage.pageCount).padStart(pageDigits, "0");
+    const pageSuffix = firstPage.pageCount > 1 ? `-sayfa-${pageNumber}-of-${pageTotal}` : "";
     files.push(await canvasToFile(canvas, `${baseName}${pageSuffix}.png`));
   }
 
@@ -1105,28 +1127,31 @@ async function sharePoemImage(post, targetName = "generic", options = {}) {
   let files = [];
   try {
     files = await createPoemShareFiles(post, targetName, options);
-    if (canShareFiles(files)) {
-      const shareData = { files, title: post.title || "Hissez şiiri" };
-      if (targetName === "generic" || targetName === "whatsapp") {
-        shareData.text = `${post.title || "Hissez şiiri"} — Hissez`;
-      }
+    const orderedFiles = [...files].sort((left, right) => left.name.localeCompare(right.name, "tr", { numeric: true }));
+    const shareUrl = `${SITE_URL}/yazi.html?id=${encodeURIComponent(post.id)}`;
+    if (canShareFiles(orderedFiles)) {
+      const shareData = {
+        files: orderedFiles,
+        title: post.title || "Hissez şiiri",
+        text: `${post.title || "Hissez şiiri"} — Hissez\n${shareUrl}`
+      };
       try {
         await navigator.share(shareData);
         return;
       } catch (error) {
         if (error?.name === "AbortError") return;
-        downloadFiles(files);
+        await downloadFiles(orderedFiles);
         showToast("Görsel paylaşılamadı. Görsel cihazına indirildi.");
         return;
       }
     }
 
-    downloadFiles(files);
+    await downloadFiles(orderedFiles);
     showToast(target.fallbackMessage);
   } catch (error) {
     if (error?.name === "AbortError") return;
     if (files.length) {
-      downloadFiles(files);
+      await downloadFiles(files);
       showToast("Görsel paylaşılamadı. Görsel cihazına indirildi.");
       return;
     }
@@ -1139,7 +1164,7 @@ async function downloadCanvas() {
   try {
     const options = readCanvasShareOptions();
     const files = await createPoemImageFiles(canvasPost, options, options.format);
-    downloadFiles(files);
+    await downloadFiles(files);
     showToast(files.length > 1 ? `${files.length} sayfalık görsel indirildi.` : "Görsel indirildi.");
   } catch (error) {
     if (error?.name !== "AbortError") showToast("Görsel oluşturulamadı. Lütfen tekrar dene.");

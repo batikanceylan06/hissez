@@ -48,7 +48,7 @@ for (const resilienceToken of ["NETWORK_TIMEOUT_MS", "AbortController", "ignoreS
   assert.ok(sw.includes(resilienceToken), `PWA dayanıklılık özelliği eksik: ${resilienceToken}`);
 }
 for (const safariRecoveryToken of [
-  'hissez-public-v29-safari-recovery',
+  'hissez-public-v30-share-images',
   'key.startsWith("hissez-")',
   "await self.skipWaiting()",
   "await self.clients.claim()"
@@ -58,7 +58,7 @@ for (const safariRecoveryToken of [
 
 const main = readFileSync(resolve(root, "assets/js/main.js"), "utf8");
 for (const recoveryToken of [
-  'const PWA_RECOVERY_VERSION = "29"',
+  'const PWA_RECOVERY_VERSION = "30"',
   'name.startsWith("hissez-")',
   "registration.unregister()",
   "caches.delete(name)",
@@ -68,8 +68,8 @@ for (const recoveryToken of [
 }
 for (const file of htmlFiles.filter((file) => file !== "sezin-panel.html")) {
   const html = readFileSync(resolve(root, file), "utf8");
-  assert.ok(html.includes('assets/js/main.js?v=29'), `${file}: sürümlü main.js bağlantısı eksik`);
-  assert.ok(html.includes('assets/js/posts.js?v=29'), `${file}: sürümlü posts.js bağlantısı eksik`);
+  assert.ok(html.includes('assets/js/main.js?v=30'), `${file}: sürümlü main.js bağlantısı eksik`);
+  assert.ok(html.includes('assets/js/posts.js?v=30'), `${file}: sürümlü posts.js bağlantısı eksik`);
 }
 
 const posts = readFileSync(resolve(root, "assets/js/posts.js"), "utf8");
@@ -79,7 +79,7 @@ for (const requiredWatermarkToken of [
   'id="canvasWatermark"',
   'value="elegant"',
   'value="strong"',
-  'ctx.fillText("HISSEZ", 0, 0)',
+  'ctx.fillText("hissez.com", x + offset, y)',
   "drawCanvasWatermark(ctx, canvas, watermarkMode)"
 ]) {
   assert.ok(posts.includes(requiredWatermarkToken), `Canvas filigran özelliği eksik: ${requiredWatermarkToken}`);
@@ -89,9 +89,13 @@ for (const requiredShareToken of [
   'data-share-target="whatsapp"',
   'data-share-target="story"',
   'data-share-target="instagram"',
+  'story: { width: 1080, height: 1920, maxLines: 18 }',
   "canvasToFile(canvas, filename)",
   "createPoemShareFiles(post, targetName",
-  "sharePoemImage(post, targetName"
+  "sharePoemImage(post, targetName",
+  'left.name.localeCompare(right.name, "tr", { numeric: true })',
+  "await downloadFiles(orderedFiles)",
+  'text: `${post.title || "Hissez şiiri"} — Hissez\\n${shareUrl}`'
 ]) {
   assert.ok(posts.includes(requiredShareToken), `Şiir görseli paylaşım özelliği eksik: ${requiredShareToken}`);
 }
@@ -101,7 +105,8 @@ for (const requiredPaginationToken of [
   'data-detail-action="canvas-page-prev"',
   'data-detail-action="canvas-page-next"',
   "paginateCanvasLines",
-  "-sayfa-${pageIndex + 1}"
+  'padStart(pageDigits, "0")',
+  "-sayfa-${pageNumber}-of-${pageTotal}"
 ]) {
   assert.ok(posts.includes(requiredPaginationToken), `Şiir görseli sayfalama özelliği eksik: ${requiredPaginationToken}`);
 }
