@@ -48,7 +48,7 @@ for (const resilienceToken of ["NETWORK_TIMEOUT_MS", "AbortController", "ignoreS
   assert.ok(sw.includes(resilienceToken), `PWA dayanıklılık özelliği eksik: ${resilienceToken}`);
 }
 for (const safariRecoveryToken of [
-  'hissez-public-v30-share-images',
+  'hissez-public-v31-single-watermark',
   'key.startsWith("hissez-")',
   "await self.skipWaiting()",
   "await self.clients.claim()"
@@ -58,7 +58,7 @@ for (const safariRecoveryToken of [
 
 const main = readFileSync(resolve(root, "assets/js/main.js"), "utf8");
 for (const recoveryToken of [
-  'const PWA_RECOVERY_VERSION = "30"',
+  'const PWA_RECOVERY_VERSION = "31"',
   'name.startsWith("hissez-")',
   "registration.unregister()",
   "caches.delete(name)",
@@ -68,22 +68,22 @@ for (const recoveryToken of [
 }
 for (const file of htmlFiles.filter((file) => file !== "sezin-panel.html")) {
   const html = readFileSync(resolve(root, file), "utf8");
-  assert.ok(html.includes('assets/js/main.js?v=30'), `${file}: sürümlü main.js bağlantısı eksik`);
-  assert.ok(html.includes('assets/js/posts.js?v=30'), `${file}: sürümlü posts.js bağlantısı eksik`);
+  assert.ok(html.includes('assets/js/main.js?v=31'), `${file}: sürümlü main.js bağlantısı eksik`);
+  assert.ok(html.includes('assets/js/posts.js?v=31'), `${file}: sürümlü posts.js bağlantısı eksik`);
 }
 
 const posts = readFileSync(resolve(root, "assets/js/posts.js"), "utf8");
 assert.ok(posts.includes('const PUBLIC_POSTS_CACHE_KEY = "hissezPublicPostsV1"'), "Public yazı offline cache'i eksik");
 assert.ok(posts.indexOf("onValue(publishedQuery") < posts.indexOf('get(ref(db, ".info/serverTimeOffset"))'), "Public listener sunucu saatini bekliyor");
 for (const requiredWatermarkToken of [
-  'id="canvasWatermark"',
-  'value="elegant"',
-  'value="strong"',
-  'ctx.fillText("hissez.com", x + offset, y)',
-  "drawCanvasWatermark(ctx, canvas, watermarkMode)"
+  'const CANVAS_WATERMARK = Object.freeze({ opacity: .075, fontSize: 150 })',
+  'ctx.fillText("hissez.com", 0, 0)',
+  "drawCanvasWatermark(ctx, canvas)"
 ]) {
   assert.ok(posts.includes(requiredWatermarkToken), `Canvas filigran özelliği eksik: ${requiredWatermarkToken}`);
 }
+assert.ok(!posts.includes('id="canvasWatermark"'), "Filigran mod seçimi kaldırılmadı");
+assert.ok(!posts.includes("CANVAS_WATERMARK_MODES"), "Eski çoklu filigran modları kaldırılmadı");
 
 for (const requiredShareToken of [
   'data-share-target="whatsapp"',

@@ -1,4 +1,4 @@
-const CACHE_NAME = "hissez-public-v30-share-images";
+const CACHE_NAME = "hissez-public-v31-single-watermark";
 const NETWORK_TIMEOUT_MS = 4500;
 const CORE_ASSETS = [
   "/",
@@ -9,8 +9,8 @@ const CORE_ASSETS = [
   "/yazi.html",
   "/hakkimda.html",
   "/assets/css/style.css",
-  "/assets/js/main.js?v=30",
-  "/assets/js/posts.js?v=30",
+  "/assets/js/main.js?v=31",
+  "/assets/js/posts.js?v=31",
   "/assets/js/post-utils.js",
   "/assets/js/firebase-config.js",
   "/assets/img/hissez-logo.png",

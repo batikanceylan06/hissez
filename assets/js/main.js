@@ -5,7 +5,7 @@ const siteNav = document.querySelector("[data-site-nav]");
 const THEME_KEY = "hissez-theme";
 const TRACK_KEY = "hissez-audio-track";
 const MUTE_KEY = "hissez-audio-muted";
-const PWA_RECOVERY_VERSION = "30";
+const PWA_RECOVERY_VERSION = "31";
 const PWA_RECOVERY_KEY = "hissez-pwa-recovery-version";
 const PWA_RECOVERY_PARAM = "hissez-pwa-reset";
 

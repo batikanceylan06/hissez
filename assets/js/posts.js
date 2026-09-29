@@ -41,20 +41,7 @@ const CANVAS_FORMATS = Object.freeze({
   post: { width: 1080, height: 1350, maxLines: 11 },
   story: { width: 1080, height: 1920, maxLines: 18 }
 });
-const CANVAS_WATERMARK_MODES = Object.freeze({
-  elegant: {
-    opacity: .055,
-    fontSize: 96,
-    gapX: 540,
-    gapY: 310
-  },
-  strong: {
-    opacity: .085,
-    fontSize: 106,
-    gapX: 440,
-    gapY: 235
-  }
-});
+const CANVAS_WATERMARK = Object.freeze({ opacity: .075, fontSize: 150 });
 const POEM_SHARE_TARGETS = Object.freeze({
   generic: {
     format: "post",
@@ -859,9 +846,8 @@ function renderCanvasDialog(post) {
       <div class="canvas-dialog-grid">
         <div class="canvas-controls">
           <label><span>Boyut</span><select id="canvasFormat"><option value="post">1080 × 1350 · Gönderi</option><option value="story">1080 × 1920 · Hikâye</option></select></label>
-          <label><span>Filigran</span><select id="canvasWatermark"><option value="elegant">Zarif Filigran</option><option value="strong">Güçlü Filigran</option></select></label>
           <label><span>Görseldeki bölüm</span><textarea id="canvasExcerpt" maxlength="5000" rows="9">${escapeHTML(poemCanvasExcerpt(post))}</textarea></label>
-          <p>Metni ve filigran yoğunluğunu burada düzenleyebilirsin; asıl yazı değişmez.</p>
+          <p>Metni burada düzenleyebilirsin; asıl yazı değişmez.</p>
           <div class="canvas-actions poem-share-actions">
             <button class="btn btn-ghost" type="button" data-detail-action="canvas-share-target" data-share-target="whatsapp">WhatsApp</button>
             <button class="btn btn-ghost" type="button" data-detail-action="canvas-share-target" data-share-target="story">Instagram Hikâye</button>
@@ -930,25 +916,16 @@ function paginateCanvasLines(lines, maxLines) {
   return pages.length ? pages : [[""]];
 }
 
-function drawCanvasWatermark(ctx, canvas, modeName = "elegant") {
-  const mode = CANVAS_WATERMARK_MODES[modeName] || CANVAS_WATERMARK_MODES.elegant;
-  const coverage = Math.ceil(Math.hypot(canvas.width, canvas.height));
+function drawCanvasWatermark(ctx, canvas) {
   ctx.save();
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.rotate(-Math.PI / 12);
-  ctx.globalAlpha = mode.opacity;
+  ctx.globalAlpha = CANVAS_WATERMARK.opacity;
   ctx.fillStyle = "#761033";
-  ctx.font = `700 ${mode.fontSize}px "Playfair Display", Georgia, serif`;
+  ctx.font = `700 ${CANVAS_WATERMARK.fontSize}px "Playfair Display", Georgia, serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  let row = 0;
-  for (let y = -coverage; y <= coverage; y += mode.gapY) {
-    const offset = row % 2 ? mode.gapX / 2 : 0;
-    for (let x = -coverage; x <= coverage; x += mode.gapX) {
-      ctx.fillText("hissez.com", x + offset, y);
-    }
-    row += 1;
-  }
+  ctx.fillText("hissez.com", 0, 0);
   ctx.restore();
 }
 
@@ -956,7 +933,6 @@ async function renderPoemCanvas(canvas, post, options = {}) {
   if (!canvas || !post || post.type !== "poem") throw new Error("Paylaşılabilir şiir bulunamadı.");
   const format = options.format === "story" ? "story" : "post";
   const formatConfig = CANVAS_FORMATS[format];
-  const watermarkMode = options.watermarkMode === "strong" ? "strong" : "elegant";
   const excerpt = String(options.excerpt || poemCanvasExcerpt(post)).trim();
   canvas.width = formatConfig.width;
   canvas.height = formatConfig.height;
@@ -971,7 +947,7 @@ async function renderPoemCanvas(canvas, post, options = {}) {
   ctx.fillStyle = "rgba(141, 21, 63, .08)";
   ctx.beginPath(); ctx.arc(1020, 130, 270, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(80, canvas.height - 70, 230, 0, Math.PI * 2); ctx.fill();
-  drawCanvasWatermark(ctx, canvas, watermarkMode);
+  drawCanvasWatermark(ctx, canvas);
 
   ctx.fillStyle = "#8d153f";
   ctx.font = "700 35px Inter, sans-serif";
@@ -1050,7 +1026,6 @@ function safeFileName(value) {
 function readCanvasShareOptions() {
   return {
     format: document.getElementById("canvasFormat")?.value || "post",
-    watermarkMode: document.getElementById("canvasWatermark")?.value || "elegant",
     excerpt: document.getElementById("canvasExcerpt")?.value.trim() || ""
   };
 }
@@ -1082,8 +1057,7 @@ async function createPoemImageFiles(post, options, suffix) {
   const canvas = document.createElement("canvas");
   const renderOptions = {
     format: options.format,
-    excerpt: options.excerpt || poemCanvasExcerpt(post),
-    watermarkMode: options.watermarkMode || "elegant"
+    excerpt: options.excerpt || poemCanvasExcerpt(post)
   };
   const firstPage = await renderPoemCanvas(canvas, post, { ...renderOptions, pageIndex: 0 });
   const files = [];
@@ -1107,8 +1081,7 @@ async function createPoemShareFiles(post, targetName = "generic", options = {}) 
   const suffix = targetName === "generic" && format === "story" ? "story" : target.suffix;
   return createPoemImageFiles(post, {
     format,
-    excerpt: options.excerpt || poemCanvasExcerpt(post),
-    watermarkMode: options.watermarkMode || "elegant"
+    excerpt: options.excerpt || poemCanvasExcerpt(post)
   }, suffix);
 }
 
