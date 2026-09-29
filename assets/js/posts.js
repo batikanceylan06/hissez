@@ -35,6 +35,7 @@ const SITE_URL = "https://hissez.com";
 const SITE_IMAGE = `${SITE_URL}/assets/icons/android-chrome-512x512.png`;
 const FAVORITES_KEY = "hissezFavorites";
 const RECENTS_KEY = "hissezRecentPosts";
+const PUBLIC_POSTS_CACHE_KEY = "hissezPublicPostsV1";
 const MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 const CANVAS_WATERMARK_MODES = Object.freeze({
   elegant: {
@@ -166,6 +167,24 @@ function writeIdList(key, ids, max = 100) {
   } catch {
     showToast("Tarayıcı bu tercihi kaydedemedi.");
     return false;
+  }
+}
+
+function readPublicPostsCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(PUBLIC_POSTS_CACHE_KEY) || "null");
+    if (!cached || typeof cached.posts !== "object" || Array.isArray(cached.posts)) return {};
+    return cached.posts;
+  } catch {
+    return {};
+  }
+}
+
+function writePublicPostsCache(posts) {
+  try {
+    localStorage.setItem(PUBLIC_POSTS_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), posts }));
+  } catch {
+    // Public içerik cache'i isteğe bağlıdır; depolama kapalıysa canlı veri kullanılmaya devam eder.
   }
 }
 
@@ -1143,8 +1162,12 @@ function renderLoadError(error) {
   if (page === "home") {
     renderEmpty(document.getElementById("featuredPost"), message);
     renderEmpty(document.getElementById("latestPosts"), message);
+    renderEmpty(document.getElementById("categoryDiscovery"), message);
   }
-  if (page === "list" || page === "archive") renderEmpty(document.getElementById("postsGrid"), message);
+  if (page === "list" || page === "archive") {
+    renderEmpty(document.getElementById("postsGrid"), message);
+    if (page === "archive") renderEmpty(document.getElementById("archiveOverview"), message);
+  }
   if (page === "detail") renderEmpty(document.getElementById("postDetail"), message);
   console.error(error);
 }
@@ -1166,20 +1189,48 @@ async function refreshScheduledPosts() {
   }
 }
 
-async function init() {
+function init() {
   initGlobalSearch();
-  try {
-    const offsetSnapshot = await get(ref(db, ".info/serverTimeOffset"));
-    serverOffset = Number(offsetSnapshot.val()) || 0;
-  } catch {
-    serverOffset = 0;
+
+  const cachedPosts = readPublicPostsCache();
+  const hasCachedPosts = Object.keys(cachedPosts).length > 0;
+  if (hasCachedPosts) {
+    publishedValue = cachedPosts;
+    renderCurrent();
   }
+
+  let publishedRequestSettled = false;
+  const loadingTimer = window.setTimeout(() => {
+    if (!publishedRequestSettled && !hasCachedPosts) {
+      renderLoadError(new Error("Public yazılar zamanında yüklenemedi."));
+    }
+  }, 6000);
+
   const publishedQuery = query(ref(db, "posts"), orderByChild("status"), equalTo("published"));
   onValue(publishedQuery, (snapshot) => {
+    publishedRequestSettled = true;
+    window.clearTimeout(loadingTimer);
     publishedValue = snapshot.val() || {};
+    writePublicPostsCache(publishedValue);
     renderCurrent();
-  }, renderLoadError);
-  await refreshScheduledPosts();
+  }, (error) => {
+    publishedRequestSettled = true;
+    window.clearTimeout(loadingTimer);
+    if (!hasCachedPosts) renderLoadError(error);
+    else console.warn("Canlı yazılar yenilenemedi; son kaydedilen public içerikler gösteriliyor.", error);
+  });
+
+  get(ref(db, ".info/serverTimeOffset"))
+    .then((offsetSnapshot) => {
+      serverOffset = Number(offsetSnapshot.val()) || 0;
+      renderCurrent();
+      return refreshScheduledPosts();
+    })
+    .catch(() => {
+      serverOffset = 0;
+    });
+
+  refreshScheduledPosts();
   window.setInterval(refreshScheduledPosts, 60000);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") refreshScheduledPosts();

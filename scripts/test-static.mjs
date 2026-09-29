@@ -44,8 +44,13 @@ for (const asset of cachedAssets) {
 }
 assert.ok(cachedAssets.includes("/assets/js/post-utils.js"), "post-utils.js Service Worker cache listesinde değil");
 assert.ok(cachedAssets.includes("/arsiv.html"), "arsiv.html Service Worker cache listesinde değil");
+for (const resilienceToken of ["NETWORK_TIMEOUT_MS", "AbortController", "ignoreSearch", "OPTIONAL_ASSETS"]) {
+  assert.ok(sw.includes(resilienceToken), `PWA dayanıklılık özelliği eksik: ${resilienceToken}`);
+}
 
 const posts = readFileSync(resolve(root, "assets/js/posts.js"), "utf8");
+assert.ok(posts.includes('const PUBLIC_POSTS_CACHE_KEY = "hissezPublicPostsV1"'), "Public yazı offline cache'i eksik");
+assert.ok(posts.indexOf("onValue(publishedQuery") < posts.indexOf('get(ref(db, ".info/serverTimeOffset"))'), "Public listener sunucu saatini bekliyor");
 for (const requiredWatermarkToken of [
   'id="canvasWatermark"',
   'value="elegant"',

@@ -1,5 +1,6 @@
-const CACHE_NAME = "hissez-public-v27-literature-blog";
-const ASSETS = [
+const CACHE_NAME = "hissez-public-v28-resilient-loading";
+const NETWORK_TIMEOUT_MS = 4500;
+const CORE_ASSETS = [
   "/",
   "/index.html",
   "/siirler.html",
@@ -14,10 +15,6 @@ const ASSETS = [
   "/assets/js/firebase-config.js",
   "/assets/img/hissez-logo.png",
   "/assets/img/hissez-bg.jpeg",
-  "/assets/audio/hissez-sessiz-ambiyans.ogg",
-  "/assets/audio/hissez-gece-defteri.ogg",
-  "/assets/audio/hissez-siir-odasi.ogg",
-  "/assets/audio/hissez-gun-notu.ogg",
   "/assets/icons/favicon.ico",
   "/assets/icons/favicon-16x16.png",
   "/assets/icons/favicon-32x32.png",
@@ -26,9 +23,19 @@ const ASSETS = [
   "/assets/icons/android-chrome-512x512.png",
   "/site.webmanifest"
 ];
+const OPTIONAL_ASSETS = [
+  "/assets/audio/hissez-sessiz-ambiyans.ogg",
+  "/assets/audio/hissez-gece-defteri.ogg",
+  "/assets/audio/hissez-siir-odasi.ogg",
+  "/assets/audio/hissez-gun-notu.ogg"
+];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.addAll(CORE_ASSETS);
+    await Promise.allSettled(OPTIONAL_ASSETS.map((asset) => cache.add(asset)));
+  })());
   self.skipWaiting();
 });
 
@@ -55,22 +62,25 @@ self.addEventListener("fetch", (event) => {
   ]);
   if (networkOnlyPaths.has(url.pathname)) return;
 
-  event.respondWith(
-    fetch(event.request)
-      .then(async (networkResponse) => {
-        if (networkResponse.ok && networkResponse.type === "basic") {
-          const cache = await caches.open(CACHE_NAME);
-          await cache.put(event.request, networkResponse.clone());
-        }
-        return networkResponse;
-      })
-      .catch(async () => {
-        const cachedResponse = await caches.match(event.request);
-        if (cachedResponse) return cachedResponse;
-        if (event.request.mode === "navigate") {
-          return (await caches.match("/index.html")) || Response.error();
-        }
-        return Response.error();
-      })
-  );
+  event.respondWith((async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS);
+    try {
+      const networkResponse = await fetch(event.request, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (networkResponse.ok && networkResponse.type === "basic") {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(event.request, networkResponse.clone());
+      }
+      return networkResponse;
+    } catch {
+      clearTimeout(timeout);
+      const cachedResponse = await caches.match(event.request, { ignoreSearch: event.request.mode === "navigate" });
+      if (cachedResponse) return cachedResponse;
+      if (event.request.mode === "navigate") {
+        return (await caches.match(url.pathname)) || (await caches.match("/index.html")) || Response.error();
+      }
+      return Response.error();
+    }
+  })());
 });
