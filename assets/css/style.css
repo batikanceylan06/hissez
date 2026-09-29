@@ -3755,6 +3755,17 @@ body[data-page="home"] .hero h1 {
   color: currentColor;
 }
 
+.footer-social-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: currentColor;
+}
+
+.pinterest-footer-icon {
+  fill: currentColor;
+}
+
 html[data-theme="dark"] .featured-post,
 html[data-theme="dark"] .author-mini-card,
 html[data-theme="dark"] .category-discovery-card,

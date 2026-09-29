@@ -68,7 +68,7 @@ for (const resilienceToken of ["NETWORK_TIMEOUT_MS", "AbortController", "ignoreS
   assert.ok(sw.includes(resilienceToken), `PWA dayanıklılık özelliği eksik: ${resilienceToken}`);
 }
 for (const safariRecoveryToken of [
-  'hissez-public-v41-featured-preview',
+  'hissez-public-v42-poem-lines-social-icons',
   'key.startsWith("hissez-")',
   "await self.skipWaiting()",
   "await self.clients.claim()"
@@ -84,7 +84,7 @@ for (const editorialUiToken of [
   assert.ok(main.includes(editorialUiToken), `Editorial ortak UI davranışı eksik: ${editorialUiToken}`);
 }
 for (const recoveryToken of [
-  'const PWA_RECOVERY_VERSION = "41"',
+  'const PWA_RECOVERY_VERSION = "42"',
   'name.startsWith("hissez-")',
   "registration.unregister()",
   "caches.delete(name)",
@@ -94,11 +94,11 @@ for (const recoveryToken of [
 }
 for (const file of htmlFiles.filter((file) => file !== "sezin-panel.html")) {
   const html = readFileSync(resolve(root, file), "utf8");
-  assert.ok(html.includes('assets/css/style.css?v=41'), `${file}: sürümlü style.css bağlantısı eksik`);
-  assert.ok(html.includes('assets/js/main.js?v=41'), `${file}: sürümlü main.js bağlantısı eksik`);
-  assert.ok(html.includes('assets/js/posts.js?v=41'), `${file}: sürümlü posts.js bağlantısı eksik`);
+  assert.ok(html.includes('assets/css/style.css?v=42'), `${file}: sürümlü style.css bağlantısı eksik`);
+  assert.ok(html.includes('assets/js/main.js?v=42'), `${file}: sürümlü main.js bağlantısı eksik`);
+  assert.ok(html.includes('assets/js/posts.js?v=42'), `${file}: sürümlü posts.js bağlantısı eksik`);
 }
-assert.ok(panel.includes('assets/js/admin.js?v=41'), "Panel sürümlü admin.js bağlantısı eksik");
+assert.ok(panel.includes('assets/js/admin.js?v=42'), "Panel sürümlü admin.js bağlantısı eksik");
 
 assert.doesNotMatch(csp, /\*/, "CSP wildcard içeriyor");
 assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval/, "CSP unsafe-inline/unsafe-eval içeriyor");
@@ -306,6 +306,7 @@ for (const requiredBlogToken of [
   "function postFirstLine(post, max = 130)",
   "function featuredContentPreview(post, max = 520)",
   'class="featured-poem-text"',
+  "related.map(renderCompactCard)",
   'href="/arsiv?category=',
   "posts.slice(0, 6)"
 ]) {
@@ -319,6 +320,7 @@ assert.ok(!index.includes("Yarım kalan sayfalar"), "Kaldırılan yarım kalan s
 assert.ok(!index.includes("author-mini-section"), "Kaldırılan ana sayfa yazar tanıtım alanı hâlâ mevcut");
 assert.ok(index.includes('class="section personal-discovery" aria-label="Kişisel keşif alanı" hidden'), "Boş kişisel keşif alanı başlangıçta gizlenmiyor");
 assert.ok(index.includes("https://www.instagram.com/hissezz"), "Ana sayfa Instagram bağlantısı eksik");
+assert.ok(main.includes('class="footer-social-icon"') && main.includes('class="footer-social-icon pinterest-footer-icon"'), "Footer sosyal medya ikonları eksik");
 
 const about = readFileSync(resolve(root, "hakkimda.html"), "utf8");
 assert.ok(about.includes('class="instagram-fixed-icon"'), "Hakkımda Instagram logosu eksik");

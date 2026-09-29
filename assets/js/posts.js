@@ -250,7 +250,10 @@ function postFirstLine(post, max = 130) {
 }
 
 function featuredContentPreview(post, max = 520) {
-  return escapeHTML(truncate(post.content || post.excerpt || "", max));
+  const content = String(post.content || post.excerpt || "").replaceAll("\r", "").trim();
+  if (content.length <= max) return escapeHTML(content);
+  const clipped = content.slice(0, max).replace(/[^\s]*$/, "").trimEnd();
+  return escapeHTML(`${clipped || content.slice(0, max).trimEnd()}…`);
 }
 
 function renderCard(post) {
@@ -752,7 +755,7 @@ function renderRelated(posts, post) {
   return `
     <section class="related-posts" aria-labelledby="relatedPostsTitle">
       <div class="section-heading split"><div><p class="eyebrow">Okumaya devam et</p><h2 id="relatedPostsTitle">Aynı histen kalanlar</h2></div><a class="section-link" href="/arsiv">Arşive git</a></div>
-      <div class="post-grid related-post-grid">${related.map(renderCard).join("")}</div>
+      <div class="post-grid related-post-grid">${related.map(renderCompactCard).join("")}</div>
     </section>`;
 }
 

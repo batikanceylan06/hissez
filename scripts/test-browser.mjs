@@ -110,13 +110,18 @@ try {
     menu.click();
     const themeBefore = document.documentElement.dataset.theme;
     document.getElementById("themeToggle").click();
+    const themeChanged = document.documentElement.dataset.theme !== themeBefore;
+    if (document.documentElement.dataset.theme !== "dark") document.getElementById("themeToggle").click();
     const cards = [...document.querySelectorAll("#latestPosts .compact-blog-card")];
     const featured = document.querySelector(".featured-post");
     const featuredPreview = featured?.querySelector(".featured-poem-text");
     resolve({
       menuOpened,
-      themeChanged: document.documentElement.dataset.theme !== themeBefore,
+      themeChanged,
+      darkBrandColor: getComputedStyle(document.querySelector(".brand-sez")).color,
+      footerIcons: document.querySelectorAll(".footer-social .footer-social-icon").length,
       featuredPreview: Boolean(featuredPreview?.textContent.trim()),
+      featuredKeepsLines: getComputedStyle(featuredPreview).whiteSpace === "pre-line",
       featuredHeight: Math.round(featured?.getBoundingClientRect().height || 0),
       compactCards: cards.length > 0 && cards.every((card) => card.querySelector(":scope > h3") && card.querySelector(":scope > p") && card.querySelector(":scope > .read-more") && !card.querySelector(".post-card-footer, .post-meta")),
       maxCardHeight: Math.max(0, ...cards.map((card) => Math.round(card.getBoundingClientRect().height))),
@@ -124,7 +129,9 @@ try {
     });
   }, 900))`);
   assert.ok(common.menuOpened && common.themeChanged, "Ortak menü/tema etkileşimi başarısız");
-  assert.ok(common.featuredPreview && common.featuredHeight < 620, `Öne çıkan şiir önizlemesi kartı gereksiz büyütüyor: ${JSON.stringify(common)}`);
+  assert.equal(common.darkBrandColor, "rgb(223, 90, 139)", "Koyu mod Hissez logosu pembe değil");
+  assert.equal(common.footerIcons, 2, "Footer Instagram/Pinterest ikonları eksik");
+  assert.ok(common.featuredPreview && common.featuredKeepsLines && common.featuredHeight < 620, `Öne çıkan şiir önizlemesi kartı gereksiz büyütüyor: ${JSON.stringify(common)}`);
   assert.ok(common.compactCards && common.maxCardHeight < 280, `Ana sayfa kartları kompakt değil: ${JSON.stringify(common)}`);
   assert.ok(common.emptyDiscoveryHidden, "İçeriği olmayan kişisel keşif alanı gereksiz boşluk bırakıyor");
 
@@ -153,9 +160,10 @@ try {
     const fallback = document.getElementById("shareFallback");
     document.querySelector('[data-detail-action="canvas-open"]')?.click();
     await new Promise((done) => setTimeout(done, 180));
-    resolve({ progress: Boolean(document.querySelector(".reading-progress")), whatsapp: Boolean(fallback?.querySelector('a[href^="https://wa.me/"]')), canvas: Boolean(document.getElementById("poemCanvasDialog")?.open), canvasWidth: document.getElementById("poemCanvas")?.width || 0 });
+    const relatedCards = [...document.querySelectorAll(".related-post-grid .compact-blog-card")];
+    resolve({ progress: Boolean(document.querySelector(".reading-progress")), whatsapp: Boolean(fallback?.querySelector('a[href^="https://wa.me/"]')), canvas: Boolean(document.getElementById("poemCanvasDialog")?.open), canvasWidth: document.getElementById("poemCanvas")?.width || 0, relatedCompact: relatedCards.length > 0 && relatedCards.every((card) => card.getBoundingClientRect().height < 280) });
   }, 1200))`);
-  assert.ok(detail.progress && detail.whatsapp && detail.canvas && detail.canvasWidth === 1080, `Detay/paylaşım/Canvas etkileşimi başarısız: ${JSON.stringify(detail)}`);
+  assert.ok(detail.progress && detail.whatsapp && detail.canvas && detail.canvasWidth === 1080 && detail.relatedCompact, `Detay/paylaşım/Canvas etkileşimi başarısız: ${JSON.stringify(detail)}`);
 
   await command("Page.navigate", { url: `${baseUrl}/siir/his-hersey-sende-gizli` }, sessionId);
   await new Promise((resolve) => setTimeout(resolve, 1600));
